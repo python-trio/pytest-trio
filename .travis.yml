@@ -1,37 +1,40 @@
 language: python
 python:
-  - 3.5.0
-  - 3.5.2
-  - 3.5-dev
-  - 3.6
-  - 3.6-dev
-  - 3.7-dev
+- 3.5.0
+- 3.5.2
+- 3.5-dev
+- 3.6
+- 3.6-dev
+- 3.7-dev
 sudo: false
 dist: trusty
-
 matrix:
   include:
-    - os: linux
-      language: generic
-      env: USE_PYPY_RELEASE_VERSION=5.9-beta
-    # Uncomment if you want to test on pypy nightly
-    # - os: linux
-    #   language: generic
-    #   env: USE_PYPY_NIGHTLY=1
-    - os: osx
-      language: generic
-      env: MACPYTHON=3.5.4
-    - os: osx
-      language: generic
-      env: MACPYTHON=3.6.3
-    - os: linux
-      language: python
-      python: 3.6
-      env: CHECK_DOCS=1
-    - os: linux
-      language: python
-      python: 3.6
-      env: CHECK_FORMATTING=1
-
+  - os: linux
+    language: generic
+    env: USE_PYPY_RELEASE_VERSION=5.9-beta
+  - os: osx
+    language: generic
+    env: MACPYTHON=3.5.4
+  - os: osx
+    language: generic
+    env: MACPYTHON=3.6.3
+  - os: linux
+    language: python
+    python: 3.6
+    env: CHECK_DOCS=1
+  - os: linux
+    language: python
+    python: 3.6
+    env: CHECK_FORMATTING=1
 script:
-  - ci/travis.sh
+- ci/travis.sh
+deploy:
+  provider: pypi
+  distributions: sdist bdist_wheel
+  user: touilleMan
+  password:
+    secure: aoSo8bi9kgPRWtVYLKEiR1mX4KFiujmWIF+nuiIL2BRy+62S35Iolkko+ZagtUz+STH0lv1f+6nRrWUffEnRbllt77n3QuSnWl5tsCetqIPMrZTyXuttQ8zTL/WPWfAPTh1zm+8J9F2dlArGJLqvOYl9/rBn9i6lnp5KIcTFGWGjWj0q9gV97r5rLDO3D7kGWNRLWP1rrBDouR9BsixNZiT8GyvRK2cEnFL3Vg/7VrGUC+oFwZObfbg411cfck5v5VcLVnRUYuBrSlOrw2pmeDnmj/CupNpk3gIGa0cBzuF1OUa/R6IBTiM7s0+i4P4gV5ZmGc7QdNJVL+F2lODhOCrg/5Z4cTU69n0ZSz2dm2AFNR7lPd2VNEnTlKhD0HsAtV1N0IvsnIV4H3DZvCB/uHZpMAon3JYd5G9RP/XqGkIADUx8vBe3toGK/eJ/TYyx65M/Me8tkKwZf0t+iZ2owPr35YrEzPXufEmxHquyu9aLVDo3MkXhepeiPsqT0SSvY1021YI8sOgWPQt8+eKOwWjV5t4zWw406uPPRKbX9gadF3r1KtuhwAwHJ8y1qfR55sV9TUFcAcCX6VdAD7sBs8Qi9GqPyv24WpN92tz2c+eAEn0el3wrKemBV9a8Vd590PpCOFA410r2IdEuqcmnavNu+16joEz8POXeGzpnXA0=
+  on:
+    tags: true
+    repo: python-trio/pytest-trio
