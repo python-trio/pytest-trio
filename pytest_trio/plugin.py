@@ -88,8 +88,8 @@ def _install_coroutine_fixture_if_needed(fixturedef, request):
     if not deps and inspect.iscoroutinefunction(fixturedef.func):
         # Top level async coroutine
         corofix = CoroutineFixture(fixturedef.func, fixturedef)
-    elif any(
-            dep for dep in deps.values() if isinstance(dep, CoroutineFixture)):
+    elif any(dep for dep in deps.values()
+             if isinstance(dep, CoroutineFixture)):
         # Fixture with coroutine fixture dependencies
         corofix = CoroutineFixture(fixturedef.func, fixturedef, deps)
     # The coroutine fixture must be evaluated from within the trio context
