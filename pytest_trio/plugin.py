@@ -11,10 +11,11 @@ from trio.testing import MockClock
 
 def pytest_configure(config):
     """Inject documentation."""
-    config.addinivalue_line("markers",
-                            "trio: "
-                            "mark the test as a coroutine, it will be "
-                            "run using an asyncio event loop")
+    config.addinivalue_line(
+        "markers", "trio: "
+        "mark the test as a coroutine, it will be "
+        "run using an asyncio event loop"
+    )
 
 
 def _trio_test_runner_factory(item):
@@ -33,7 +34,9 @@ def _trio_test_runner_factory(item):
             clock = clocks[0]
         else:
             raise pytest.fail("too many clocks spoil the broth!")
-        trio._core.run(partial(_bootstrap_fixture_and_run_test, **kwargs), clock=clock)
+        trio._core.run(
+            partial(_bootstrap_fixture_and_run_test, **kwargs), clock=clock
+        )
 
     return run_test_in_trio
 
@@ -48,7 +51,9 @@ async def _resolve_coroutine_fixtures_in(deps):
         for depname, depval in resolved_deps.items():
             if isinstance(depval, CoroutineFixture):
                 nursery.start_soon(
-                    _resolve_and_update_deps, depval.resolve, resolved_deps, depname)
+                    _resolve_and_update_deps, depval.resolve, resolved_deps,
+                    depname
+                )
     return resolved_deps
 
 
@@ -83,7 +88,8 @@ def _install_coroutine_fixture_if_needed(fixturedef, request):
     if not deps and inspect.iscoroutinefunction(fixturedef.func):
         # Top level async coroutine
         corofix = CoroutineFixture(fixturedef.func, fixturedef)
-    elif any(dep for dep in deps.values() if isinstance(dep, CoroutineFixture)):
+    elif any(
+            dep for dep in deps.values() if isinstance(dep, CoroutineFixture)):
         # Fixture with coroutine fixture dependencies
         corofix = CoroutineFixture(fixturedef.func, fixturedef, deps)
     # The coroutine fixture must be evaluated from within the trio context
@@ -107,7 +113,9 @@ def pytest_collection_modifyitems(session, config, items):
         if 'trio' not in item.keywords:
             continue
         if not inspect.iscoroutinefunction(item.function):
-            pytest.fail('test function `%r` is marked trio but is not async' % item)
+            pytest.fail(
+                'test function `%r` is marked trio but is not async' % item
+            )
         item.obj = _trio_test_runner_factory(item)
 
 
@@ -115,7 +123,9 @@ def pytest_collection_modifyitems(session, config, items):
 def pytest_exception_interact(node, call, report):
     if issubclass(call.excinfo.type, trio.MultiError):
         # TODO: not really elegant (pytest cannot output color with this hack)
-        report.longrepr = ''.join(trio.format_exception(*call.excinfo._excinfo))
+        report.longrepr = ''.join(
+            trio.format_exception(*call.excinfo._excinfo)
+        )
 
 
 @pytest.fixture
@@ -141,6 +151,7 @@ def unused_tcp_port_factory():
         produced.add(port)
 
         return port
+
     return factory
 
 

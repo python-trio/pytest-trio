@@ -14,11 +14,7 @@ setup(
     author_email="emmanuel.leblond@gmail.com",
     license="MIT -or- Apache License 2.0",
     packages=find_packages(),
-    entry_points={
-        'pytest11': [
-            'trio = pytest_trio.plugin',
-        ]
-    },
+    entry_points={'pytest11': ['trio = pytest_trio.plugin',]},
     install_requires=[
         "trio",
     ],
