@@ -13,8 +13,8 @@ def pytest_configure(config):
     """Inject documentation."""
     config.addinivalue_line(
         "markers", "trio: "
-        "mark the test as a coroutine, it will be "
-        "run using an asyncio event loop"
+        "mark the test as an async trio test; "
+        "it will be run using trio.run"
     )
 
 
