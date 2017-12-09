@@ -3,6 +3,7 @@ import contextlib
 import inspect
 import socket
 from functools import partial
+from traceback import format_exception
 
 import pytest
 import trio
@@ -111,9 +112,7 @@ def pytest_collection_modifyitems(session, config, items):
 def pytest_exception_interact(node, call, report):
     if issubclass(call.excinfo.type, trio.MultiError):
         # TODO: not really elegant (pytest cannot output color with this hack)
-        report.longrepr = ''.join(
-            trio.format_exception(*call.excinfo._excinfo)
-        )
+        report.longrepr = ''.join(format_exception(*call.excinfo._excinfo))
 
 
 @pytest.fixture
