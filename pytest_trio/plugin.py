@@ -6,7 +6,7 @@ from functools import partial
 
 import pytest
 import trio
-from trio.testing import MockClock
+from trio.testing import MockClock, trio_test
 
 
 def pytest_configure(config):
@@ -21,24 +21,12 @@ def pytest_configure(config):
 def _trio_test_runner_factory(item):
     testfunc = item.function
 
+    @trio_test
     async def _bootstrap_fixture_and_run_test(**kwargs):
         kwargs = await _resolve_coroutine_fixtures_in(kwargs)
         await testfunc(**kwargs)
 
-    def run_test_in_trio(**kwargs):
-        # Extract the clock fixture if provided
-        clocks = [c for c in kwargs.values() if isinstance(c, trio.abc.Clock)]
-        if not clocks:
-            clock = None
-        elif len(clocks) == 1:
-            clock = clocks[0]
-        else:
-            raise pytest.fail("too many clocks spoil the broth!")
-        trio._core.run(
-            partial(_bootstrap_fixture_and_run_test, **kwargs), clock=clock
-        )
-
-    return run_test_in_trio
+    return _bootstrap_fixture_and_run_test
 
 
 async def _resolve_coroutine_fixtures_in(deps):
