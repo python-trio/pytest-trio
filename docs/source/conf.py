@@ -49,7 +49,7 @@ extensions = [
 
 intersphinx_mapping = {
     "python": ('https://docs.python.org/3', None),
-    # "trio": ('https://trio.readthedocs.io/', None),
+    "trio": ('https://trio.readthedocs.io/en/stable', None),
 }
 
 autodoc_member_order = "bysource"
