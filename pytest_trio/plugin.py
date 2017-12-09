@@ -23,13 +23,13 @@ def _trio_test_runner_factory(item):
 
     @trio_test
     async def _bootstrap_fixture_and_run_test(**kwargs):
-        kwargs = await _resolve_coroutine_fixtures_in(kwargs)
+        kwargs = await _resolve_async_fixtures_in(kwargs)
         await testfunc(**kwargs)
 
     return _bootstrap_fixture_and_run_test
 
 
-async def _resolve_coroutine_fixtures_in(deps):
+async def _resolve_async_fixtures_in(deps):
     resolved_deps = {**deps}
 
     async def _resolve_and_update_deps(afunc, deps, entry):
@@ -37,7 +37,7 @@ async def _resolve_coroutine_fixtures_in(deps):
 
     async with trio.open_nursery() as nursery:
         for depname, depval in resolved_deps.items():
-            if isinstance(depval, CoroutineFixture):
+            if isinstance(depval, AsyncFixture):
                 nursery.start_soon(
                     _resolve_and_update_deps, depval.resolve, resolved_deps,
                     depname
@@ -45,7 +45,7 @@ async def _resolve_coroutine_fixtures_in(deps):
     return resolved_deps
 
 
-class CoroutineFixture:
+class AsyncFixture:
     """
     Represent a fixture that need to be run in a trio context to be resolved.
     Can be async function fixture or a syncronous fixture with async
@@ -62,7 +62,7 @@ class CoroutineFixture:
 
     async def resolve(self):
         if self._ret is self.NOTSET:
-            resolved_deps = await _resolve_coroutine_fixtures_in(self.deps)
+            resolved_deps = await _resolve_async_fixtures_in(self.deps)
             if inspect.iscoroutinefunction(self.fixturefunc):
                 self._ret = await self.fixturefunc(**resolved_deps)
             else:
@@ -70,28 +70,28 @@ class CoroutineFixture:
         return self._ret
 
 
-def _install_coroutine_fixture_if_needed(fixturedef, request):
+def _install_async_fixture_if_needed(fixturedef, request):
     deps = {dep: request.getfixturevalue(dep) for dep in fixturedef.argnames}
-    corofix = None
+    asyncfix = None
     if not deps and inspect.iscoroutinefunction(fixturedef.func):
-        # Top level async coroutine
-        corofix = CoroutineFixture(fixturedef.func, fixturedef)
+        # Top level async fixture
+        asyncfix = AsyncFixture(fixturedef.func, fixturedef)
     elif any(dep for dep in deps.values()
-             if isinstance(dep, CoroutineFixture)):
-        # Fixture with coroutine fixture dependencies
-        corofix = CoroutineFixture(fixturedef.func, fixturedef, deps)
-    # The coroutine fixture must be evaluated from within the trio context
+             if isinstance(dep, AsyncFixture)):
+        # Fixture with async fixture dependencies
+        asyncfix = AsyncFixture(fixturedef.func, fixturedef, deps)
+    # The async fixture must be evaluated from within the trio context
     # which is spawed in the function test's trio decorator.
-    # The trick is to make pytest's fixture call return the CoroutineFixture
+    # The trick is to make pytest's fixture call return the AsyncFixture
     # object which will be actully resolved just before we run the test.
-    if corofix:
-        fixturedef.func = lambda **kwargs: corofix
+    if asyncfix:
+        fixturedef.func = lambda **kwargs: asyncfix
 
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_fixture_setup(fixturedef, request):
     if 'trio' in request.keywords:
-        _install_coroutine_fixture_if_needed(fixturedef, request)
+        _install_async_fixture_if_needed(fixturedef, request)
 
 
 @pytest.hookimpl(tryfirst=True)
