@@ -77,8 +77,7 @@ def _install_async_fixture_if_needed(fixturedef, request):
     if not deps and inspect.iscoroutinefunction(fixturedef.func):
         # Top level async fixture
         asyncfix = AsyncFixture(fixturedef.func, fixturedef)
-    elif any(dep for dep in deps.values()
-             if isinstance(dep, AsyncFixture)):
+    elif any(dep for dep in deps.values() if isinstance(dep, AsyncFixture)):
         # Fixture with async fixture dependencies
         asyncfix = AsyncFixture(fixturedef.func, fixturedef, deps)
     # The async fixture must be evaluated from within the trio context
