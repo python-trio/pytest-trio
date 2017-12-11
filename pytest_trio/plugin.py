@@ -3,45 +3,34 @@ import contextlib
 import inspect
 import socket
 from functools import partial
+from traceback import format_exception
 
 import pytest
 import trio
-from trio.testing import MockClock
+from trio.testing import MockClock, trio_test
 
 
 def pytest_configure(config):
     """Inject documentation."""
     config.addinivalue_line(
         "markers", "trio: "
-        "mark the test as a coroutine, it will be "
-        "run using an asyncio event loop"
+        "mark the test as an async trio test; "
+        "it will be run using trio.run"
     )
 
 
 def _trio_test_runner_factory(item):
     testfunc = item.function
 
+    @trio_test
     async def _bootstrap_fixture_and_run_test(**kwargs):
-        kwargs = await _resolve_coroutine_fixtures_in(kwargs)
+        kwargs = await _resolve_async_fixtures_in(kwargs)
         await testfunc(**kwargs)
 
-    def run_test_in_trio(**kwargs):
-        # Extract the clock fixture if provided
-        clocks = [c for c in kwargs.values() if isinstance(c, trio.abc.Clock)]
-        if not clocks:
-            clock = None
-        elif len(clocks) == 1:
-            clock = clocks[0]
-        else:
-            raise pytest.fail("too many clocks spoil the broth!")
-        trio._core.run(
-            partial(_bootstrap_fixture_and_run_test, **kwargs), clock=clock
-        )
-
-    return run_test_in_trio
+    return _bootstrap_fixture_and_run_test
 
 
-async def _resolve_coroutine_fixtures_in(deps):
+async def _resolve_async_fixtures_in(deps):
     resolved_deps = {**deps}
 
     async def _resolve_and_update_deps(afunc, deps, entry):
@@ -49,7 +38,7 @@ async def _resolve_coroutine_fixtures_in(deps):
 
     async with trio.open_nursery() as nursery:
         for depname, depval in resolved_deps.items():
-            if isinstance(depval, CoroutineFixture):
+            if isinstance(depval, AsyncFixture):
                 nursery.start_soon(
                     _resolve_and_update_deps, depval.resolve, resolved_deps,
                     depname
@@ -57,7 +46,7 @@ async def _resolve_coroutine_fixtures_in(deps):
     return resolved_deps
 
 
-class CoroutineFixture:
+class AsyncFixture:
     """
     Represent a fixture that need to be run in a trio context to be resolved.
     Can be async function fixture or a syncronous fixture with async
@@ -74,7 +63,7 @@ class CoroutineFixture:
 
     async def resolve(self):
         if self._ret is self.NOTSET:
-            resolved_deps = await _resolve_coroutine_fixtures_in(self.deps)
+            resolved_deps = await _resolve_async_fixtures_in(self.deps)
             if inspect.iscoroutinefunction(self.fixturefunc):
                 self._ret = await self.fixturefunc(**resolved_deps)
             else:
@@ -82,28 +71,27 @@ class CoroutineFixture:
         return self._ret
 
 
-def _install_coroutine_fixture_if_needed(fixturedef, request):
+def _install_async_fixture_if_needed(fixturedef, request):
     deps = {dep: request.getfixturevalue(dep) for dep in fixturedef.argnames}
-    corofix = None
+    asyncfix = None
     if not deps and inspect.iscoroutinefunction(fixturedef.func):
-        # Top level async coroutine
-        corofix = CoroutineFixture(fixturedef.func, fixturedef)
-    elif any(dep for dep in deps.values()
-             if isinstance(dep, CoroutineFixture)):
-        # Fixture with coroutine fixture dependencies
-        corofix = CoroutineFixture(fixturedef.func, fixturedef, deps)
-    # The coroutine fixture must be evaluated from within the trio context
+        # Top level async fixture
+        asyncfix = AsyncFixture(fixturedef.func, fixturedef)
+    elif any(dep for dep in deps.values() if isinstance(dep, AsyncFixture)):
+        # Fixture with async fixture dependencies
+        asyncfix = AsyncFixture(fixturedef.func, fixturedef, deps)
+    # The async fixture must be evaluated from within the trio context
     # which is spawed in the function test's trio decorator.
-    # The trick is to make pytest's fixture call return the CoroutineFixture
+    # The trick is to make pytest's fixture call return the AsyncFixture
     # object which will be actully resolved just before we run the test.
-    if corofix:
-        fixturedef.func = lambda **kwargs: corofix
+    if asyncfix:
+        fixturedef.func = lambda **kwargs: asyncfix
 
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_fixture_setup(fixturedef, request):
     if 'trio' in request.keywords:
-        _install_coroutine_fixture_if_needed(fixturedef, request)
+        _install_async_fixture_if_needed(fixturedef, request)
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -123,9 +111,7 @@ def pytest_collection_modifyitems(session, config, items):
 def pytest_exception_interact(node, call, report):
     if issubclass(call.excinfo.type, trio.MultiError):
         # TODO: not really elegant (pytest cannot output color with this hack)
-        report.longrepr = ''.join(
-            trio.format_exception(*call.excinfo._excinfo)
-        )
+        report.longrepr = ''.join(format_exception(*call.excinfo._excinfo))
 
 
 @pytest.fixture
