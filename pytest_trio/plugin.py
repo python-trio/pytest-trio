@@ -2,7 +2,6 @@
 import contextlib
 import inspect
 import socket
-from functools import partial
 from traceback import format_exception
 
 import pytest
@@ -24,13 +23,15 @@ def _trio_test_runner_factory(item):
 
     @trio_test
     async def _bootstrap_fixture_and_run_test(**kwargs):
-        kwargs = await _resolve_async_fixtures_in(kwargs)
-        await testfunc(**kwargs)
+        __tracebackhide__ = True
+        resolved_kwargs = await _setup_async_fixtures_in(kwargs)
+        await testfunc(**resolved_kwargs)
+        await _teardown_async_fixtures_in(kwargs)
 
     return _bootstrap_fixture_and_run_test
 
 
-async def _resolve_async_fixtures_in(deps):
+async def _setup_async_fixtures_in(deps):
     resolved_deps = {**deps}
 
     async def _resolve_and_update_deps(afunc, deps, entry):
@@ -38,73 +39,157 @@ async def _resolve_async_fixtures_in(deps):
 
     async with trio.open_nursery() as nursery:
         for depname, depval in resolved_deps.items():
-            if isinstance(depval, AsyncFixture):
+            if isinstance(depval, BaseAsyncFixture):
                 nursery.start_soon(
-                    _resolve_and_update_deps, depval.resolve, resolved_deps,
+                    _resolve_and_update_deps, depval.setup, resolved_deps,
                     depname
                 )
     return resolved_deps
 
 
-class AsyncFixture:
+async def _teardown_async_fixtures_in(deps):
+    async with trio.open_nursery() as nursery:
+        for depval in deps.values():
+            if isinstance(depval, BaseAsyncFixture):
+                nursery.start_soon(depval.teardown)
+
+
+class BaseAsyncFixture:
     """
     Represent a fixture that need to be run in a trio context to be resolved.
-    Can be async function fixture or a syncronous fixture with async
-    dependencies fixtures.
     """
-    NOTSET = object()
 
-    def __init__(self, fixturefunc, fixturedef, deps={}):
-        self.fixturefunc = fixturefunc
-        # Note fixturedef.func
+    def __init__(self, fixturedef, deps={}):
         self.fixturedef = fixturedef
         self.deps = deps
-        self._ret = self.NOTSET
+        self.setup_done = False
+        self.teardown_done = False
+        self.result = None
+        self.lock = trio.Lock()
 
-    async def resolve(self):
-        if self._ret is self.NOTSET:
-            resolved_deps = await _resolve_async_fixtures_in(self.deps)
-            if inspect.iscoroutinefunction(self.fixturefunc):
-                self._ret = await self.fixturefunc(**resolved_deps)
-            else:
-                self._ret = self.fixturefunc(**resolved_deps)
-        return self._ret
+    async def setup(self):
+        async with self.lock:
+            if not self.setup_done:
+                self.result = await self._setup()
+                self.setup_done = True
+            return self.result
+
+    async def _setup(self):
+        raise NotImplementedError()
+
+    async def teardown(self):
+        async with self.lock:
+            if not self.teardown_done:
+                await self._teardown()
+                self.teardown_done = True
+
+    async def _teardown(self):
+        raise NotImplementedError()
+
+
+class AsyncYieldFixture(BaseAsyncFixture):
+    """
+    Async generator fixture.
+    """
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.agen = None
+
+    async def _setup(self):
+        resolved_deps = await _setup_async_fixtures_in(self.deps)
+        self.agen = self.fixturedef.func(**resolved_deps)
+        return await self.agen.asend(None)
+
+    async def _teardown(self):
+        try:
+            await self.agen.asend(None)
+        except StopAsyncIteration:
+            await _teardown_async_fixtures_in(self.deps)
+        else:
+            raise RuntimeError('Only one yield in fixture is allowed')
+
+
+class SyncFixtureWithAsyncDeps(BaseAsyncFixture):
+    """
+    Synchronous function fixture with asynchronous dependencies fixtures.
+    """
+
+    async def _setup(self):
+        resolved_deps = await _setup_async_fixtures_in(self.deps)
+        return self.fixturedef.func(**resolved_deps)
+
+    async def _teardown(self):
+        await _teardown_async_fixtures_in(self.deps)
+
+
+class SyncYieldFixtureWithAsyncDeps(BaseAsyncFixture):
+    """
+    Synchronous generator fixture with asynchronous dependencies fixtures.
+    """
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.agen = None
+
+    async def _setup(self):
+        resolved_deps = await _setup_async_fixtures_in(self.deps)
+        self.gen = self.fixturedef.func(**resolved_deps)
+        return self.gen.send(None)
+
+    async def _teardown(self):
+        try:
+            await self.gen.send(None)
+        except StopIteration:
+            await _teardown_async_fixtures_in(self.deps)
+        else:
+            raise RuntimeError('Only one yield in fixture is allowed')
+
+
+class AsyncFixture(BaseAsyncFixture):
+    """
+    Regular async fixture (i.e. coroutine).
+    """
+    async def _setup(self):
+        resolved_deps = await _setup_async_fixtures_in(self.deps)
+        return await self.fixturedef.func(**resolved_deps)
+
+    async def _teardown(self):
+        await _teardown_async_fixtures_in(self.deps)
 
 
 def _install_async_fixture_if_needed(fixturedef, request):
-    deps = {dep: request.getfixturevalue(dep) for dep in fixturedef.argnames}
     asyncfix = None
-    if not deps and inspect.iscoroutinefunction(fixturedef.func):
-        # Top level async fixture
-        asyncfix = AsyncFixture(fixturedef.func, fixturedef)
-    elif any(dep for dep in deps.values() if isinstance(dep, AsyncFixture)):
-        # Fixture with async fixture dependencies
-        asyncfix = AsyncFixture(fixturedef.func, fixturedef, deps)
-    # The async fixture must be evaluated from within the trio context
-    # which is spawed in the function test's trio decorator.
-    # The trick is to make pytest's fixture call return the AsyncFixture
-    # object which will be actully resolved just before we run the test.
+    deps = {dep: request.getfixturevalue(dep) for dep in fixturedef.argnames}
+    if inspect.iscoroutinefunction(fixturedef.func):
+        asyncfix = AsyncFixture(fixturedef, deps)
+    elif inspect.isasyncgenfunction(fixturedef.func):
+        asyncfix = AsyncYieldFixture(fixturedef, deps)
+    elif any(dep for dep in deps.values() if isinstance(dep, BaseAsyncFixture)):
+        if inspect.isgeneratorfunction(fixturedef.func):
+            asyncfix = SyncYieldFixtureWithAsyncDeps(fixturedef, deps)
+        else:
+            asyncfix = SyncFixtureWithAsyncDeps(fixturedef, deps)
     if asyncfix:
-        fixturedef.func = lambda **kwargs: asyncfix
+        fixturedef.cached_result = (asyncfix, request.param_index, None)
+        return asyncfix
 
 
-@pytest.hookimpl(tryfirst=True)
-def pytest_fixture_setup(fixturedef, request):
-    if 'trio' in request.keywords:
-        _install_async_fixture_if_needed(fixturedef, request)
-
-
-@pytest.hookimpl(tryfirst=True)
-def pytest_collection_modifyitems(session, config, items):
-    # Retrieve test marked as `trio`
-    for item in items:
-        if 'trio' not in item.keywords:
-            continue
-        if not inspect.iscoroutinefunction(item.function):
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_call(item):
+    if 'trio' in item.keywords:
+        if not inspect.iscoroutinefunction(item.obj):
             pytest.fail(
                 'test function `%r` is marked trio but is not async' % item
             )
         item.obj = _trio_test_runner_factory(item)
+
+    yield
+
+
+@pytest.hookimpl()
+def pytest_fixture_setup(fixturedef, request):
+    if 'trio' in request.keywords:
+        return _install_async_fixture_if_needed(fixturedef, request)
 
 
 @pytest.hookimpl(tryfirst=True)
