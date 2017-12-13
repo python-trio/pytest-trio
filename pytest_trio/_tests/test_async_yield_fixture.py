@@ -1,6 +1,12 @@
+import sys
+import pytest
+
+
+@pytest.mark.skipif(sys.version_info < (3, 6), reason="requires python3.6")
 def test_single_async_yield_fixture(testdir):
 
-    testdir.makepyfile("""
+    testdir.makepyfile(
+        """
         import pytest
         import trio
 
@@ -29,16 +35,19 @@ def test_single_async_yield_fixture(testdir):
                 'fix1 setup',
                 'fix1 teardown',
             ]
-    """)
+    """
+    )
 
     result = testdir.runpytest()
 
     result.assert_outcomes(passed=3)
 
 
+@pytest.mark.skipif(sys.version_info < (3, 6), reason="requires python3.6")
 def test_nested_async_yield_fixture(testdir):
 
-    testdir.makepyfile("""
+    testdir.makepyfile(
+        """
         import pytest
         import trio
 
@@ -82,16 +91,19 @@ def test_nested_async_yield_fixture(testdir):
                 'fix1 teardown',
                 'fix2 teardown',
             ]
-    """)
+    """
+    )
 
     result = testdir.runpytest()
 
     result.assert_outcomes(passed=3)
 
 
+@pytest.mark.skipif(sys.version_info < (3, 6), reason="requires python3.6")
 def test_async_yield_fixture_within_sync_fixture(testdir):
 
-    testdir.makepyfile("""
+    testdir.makepyfile(
+        """
         import pytest
         import trio
 
@@ -126,16 +138,19 @@ def test_async_yield_fixture_within_sync_fixture(testdir):
                 'fix2 setup',
                 'fix2 teardown',
             ]
-    """)
+    """
+    )
 
     result = testdir.runpytest()
 
     result.assert_outcomes(passed=3)
 
 
+@pytest.mark.skipif(sys.version_info < (3, 6), reason="requires python3.6")
 def test_async_yield_fixture_within_sync_yield_fixture(testdir):
 
-    testdir.makepyfile("""
+    testdir.makepyfile(
+        """
         import pytest
         import trio
 
@@ -175,16 +190,19 @@ def test_async_yield_fixture_within_sync_yield_fixture(testdir):
                 'fix1 teardown',
                 'fix2 teardown',
             ]
-    """)
+    """
+    )
 
     result = testdir.runpytest()
 
     result.assert_outcomes(passed=3)
 
 
+@pytest.mark.skipif(sys.version_info < (3, 6), reason="requires python3.6")
 def test_async_yield_fixture_with_multiple_yields(testdir):
 
-    testdir.makepyfile("""
+    testdir.makepyfile(
+        """
         import pytest
         import trio
 
@@ -198,7 +216,8 @@ def test_async_yield_fixture_with_multiple_yields(testdir):
         @pytest.mark.trio
         async def test_actual_test(fix1):
             pass
-    """)
+    """
+    )
 
     result = testdir.runpytest()
 

@@ -127,6 +127,7 @@ class SyncYieldFixtureWithAsyncDeps(BaseAsyncFixture):
     """
     Synchronous generator fixture with asynchronous dependencies fixtures.
     """
+
     def __init__(self, *args):
         super().__init__(*args)
         self.agen = None
@@ -149,6 +150,7 @@ class AsyncFixture(BaseAsyncFixture):
     """
     Regular async fixture (i.e. coroutine).
     """
+
     async def _setup(self):
         resolved_deps = await _setup_async_fixtures_in(self.deps)
         return await self.fixturedef.func(**resolved_deps)
@@ -164,7 +166,8 @@ def _install_async_fixture_if_needed(fixturedef, request):
         asyncfix = AsyncFixture(fixturedef, deps)
     elif inspect.isasyncgenfunction(fixturedef.func):
         asyncfix = AsyncYieldFixture(fixturedef, deps)
-    elif any(dep for dep in deps.values() if isinstance(dep, BaseAsyncFixture)):
+    elif any(dep for dep in deps.values()
+             if isinstance(dep, BaseAsyncFixture)):
         if inspect.isgeneratorfunction(fixturedef.func):
             asyncfix = SyncYieldFixtureWithAsyncDeps(fixturedef, deps)
         else:

@@ -3,7 +3,8 @@ import pytest
 
 def test_single_async_fixture(testdir):
 
-    testdir.makepyfile("""
+    testdir.makepyfile(
+        """
         import pytest
         import trio
 
@@ -15,7 +16,8 @@ def test_single_async_fixture(testdir):
         @pytest.mark.trio
         async def test_simple(fix1):
             assert fix1 == 'fix1'
-    """)
+    """
+    )
 
     result = testdir.runpytest()
 
@@ -24,7 +26,8 @@ def test_single_async_fixture(testdir):
 
 def test_async_fixture_recomputed_for_each_test(testdir):
 
-    testdir.makepyfile("""
+    testdir.makepyfile(
+        """
         import pytest
         import trio
 
@@ -44,7 +47,8 @@ def test_async_fixture_recomputed_for_each_test(testdir):
         @pytest.mark.trio
         async def test_second(fix1):
             assert fix1 == 2
-    """)
+    """
+    )
 
     result = testdir.runpytest()
 
@@ -53,7 +57,8 @@ def test_async_fixture_recomputed_for_each_test(testdir):
 
 def test_nested_async_fixture(testdir):
 
-    testdir.makepyfile("""
+    testdir.makepyfile(
+        """
         import pytest
         import trio
 
@@ -75,7 +80,8 @@ def test_nested_async_fixture(testdir):
         async def test_both(fix1, fix2):
             assert fix1 == 'fix1'
             assert fix2 == 'fix2(fix1)'
-    """)
+    """
+    )
 
     result = testdir.runpytest()
 
@@ -84,7 +90,8 @@ def test_nested_async_fixture(testdir):
 
 def test_async_within_sync_fixture(testdir):
 
-    testdir.makepyfile("""
+    testdir.makepyfile(
+        """
         import pytest
         import trio
 
@@ -100,7 +107,8 @@ def test_async_within_sync_fixture(testdir):
         @pytest.mark.trio
         async def test_simple(sync_fix):
             assert sync_fix == 42
-    """)
+    """
+    )
 
     result = testdir.runpytest()
 
@@ -115,7 +123,8 @@ def test_async_within_sync_fixture(testdir):
 @pytest.mark.xfail(reason='Not implemented yet')
 def test_raise_in_async_fixture_cause_pytest_error(testdir):
 
-    testdir.makepyfile("""
+    testdir.makepyfile(
+        """
         import pytest
 
         @pytest.fixture
@@ -125,7 +134,8 @@ def test_raise_in_async_fixture_cause_pytest_error(testdir):
         @pytest.mark.trio
         async def test_base(fix1):
             pass  # Crash should have occures before arriving here
-    """)
+    """
+    )
 
     result = testdir.runpytest()
 

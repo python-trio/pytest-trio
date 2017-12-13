@@ -13,7 +13,8 @@ async def test_single_sync_fixture(sync_fix):
 
 def test_single_yield_fixture(testdir):
 
-    testdir.makepyfile("""
+    testdir.makepyfile(
+        """
         import pytest
 
         events = []
@@ -37,7 +38,8 @@ def test_single_yield_fixture(testdir):
                 'fixture setup',
                 'fixture teardown',
             ]
-    """)
+    """
+    )
 
     result = testdir.runpytest()
 

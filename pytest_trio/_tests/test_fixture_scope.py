@@ -5,7 +5,8 @@ import pytest
 @pytest.mark.parametrize('scope', ['class', 'module', 'session'])
 def test_not_allowed_scopes(testdir, scope):
 
-    testdir.makepyfile("""
+    testdir.makepyfile(
+        """
         import pytest
 
         @pytest.fixture(scope=%r)
@@ -15,7 +16,8 @@ def test_not_allowed_scopes(testdir, scope):
         @pytest.mark.trio
         async def test_base(fix1):
             pass  # Crash should have occures before arriving here
-    """ % scope)
+    """ % scope
+    )
 
     result = testdir.runpytest()
 
@@ -25,7 +27,8 @@ def test_not_allowed_scopes(testdir, scope):
 @pytest.mark.parametrize('scope', ['function'])
 def test_allowed_scopes(testdir, scope):
 
-    testdir.makepyfile("""
+    testdir.makepyfile(
+        """
         import pytest
 
         @pytest.fixture(scope=%r)
@@ -35,7 +38,8 @@ def test_allowed_scopes(testdir, scope):
         @pytest.mark.trio
         async def test_base(fix1):
             assert fix1 == 'fix1'
-    """ % scope)
+    """ % scope
+    )
 
     result = testdir.runpytest()
 

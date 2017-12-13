@@ -4,7 +4,8 @@ import trio
 
 def test_async_test_is_executed(testdir):
 
-    testdir.makepyfile("""
+    testdir.makepyfile(
+        """
         import pytest
         import trio
 
@@ -18,7 +19,8 @@ def test_async_test_is_executed(testdir):
 
         def test_check_async_test_called():
             assert async_test_called
-    """)
+    """
+    )
 
     result = testdir.runpytest()
 
@@ -27,7 +29,8 @@ def test_async_test_is_executed(testdir):
 
 def test_async_test_as_class_method(testdir):
 
-    testdir.makepyfile("""
+    testdir.makepyfile(
+        """
         import pytest
         import trio
 
@@ -48,7 +51,8 @@ def test_async_test_as_class_method(testdir):
 
         def test_check_async_test_called():
             assert async_test_called
-    """)
+    """
+    )
 
     result = testdir.runpytest()
 
@@ -58,13 +62,15 @@ def test_async_test_as_class_method(testdir):
 @pytest.mark.xfail(reason='Raises pytest internal error so far...')
 def test_sync_function_with_trio_mark(testdir):
 
-    testdir.makepyfile("""
+    testdir.makepyfile(
+        """
         import pytest
 
         @pytest.mark.trio
         def test_invalid():
             pass
-    """)
+    """
+    )
 
     result = testdir.runpytest()
 
