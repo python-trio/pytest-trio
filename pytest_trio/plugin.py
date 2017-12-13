@@ -1,8 +1,14 @@
 """pytest-trio implementation."""
 import contextlib
-import inspect
 import socket
 from traceback import format_exception
+from inspect import iscoroutinefunction, isgeneratorfunction
+try:
+    from inspect import isasyncgenfunction
+except ImportError:
+    # `inspect.isasyncgenfunction` not available with Python<3.6
+    def isasyncgenfunction(x):
+        return False
 
 import pytest
 import trio
@@ -162,13 +168,13 @@ class AsyncFixture(BaseAsyncFixture):
 def _install_async_fixture_if_needed(fixturedef, request):
     asyncfix = None
     deps = {dep: request.getfixturevalue(dep) for dep in fixturedef.argnames}
-    if inspect.iscoroutinefunction(fixturedef.func):
+    if iscoroutinefunction(fixturedef.func):
         asyncfix = AsyncFixture(fixturedef, deps)
-    elif inspect.isasyncgenfunction(fixturedef.func):
+    elif isasyncgenfunction(fixturedef.func):
         asyncfix = AsyncYieldFixture(fixturedef, deps)
     elif any(dep for dep in deps.values()
              if isinstance(dep, BaseAsyncFixture)):
-        if inspect.isgeneratorfunction(fixturedef.func):
+        if isgeneratorfunction(fixturedef.func):
             asyncfix = SyncYieldFixtureWithAsyncDeps(fixturedef, deps)
         else:
             asyncfix = SyncFixtureWithAsyncDeps(fixturedef, deps)
@@ -180,7 +186,7 @@ def _install_async_fixture_if_needed(fixturedef, request):
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_call(item):
     if 'trio' in item.keywords:
-        if not inspect.iscoroutinefunction(item.obj):
+        if not iscoroutinefunction(item.obj):
             pytest.fail(
                 'test function `%r` is marked trio but is not async' % item
             )
