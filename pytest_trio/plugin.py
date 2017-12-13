@@ -10,6 +10,7 @@ except ImportError:
     def isasyncgenfunction(x):
         return False
 
+
 import pytest
 import trio
 from trio.testing import MockClock, trio_test
