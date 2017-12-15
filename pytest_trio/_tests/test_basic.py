@@ -1,5 +1,4 @@
 import pytest
-import trio
 
 
 def test_async_test_is_executed(testdir):

@@ -1,6 +1,4 @@
 """pytest-trio implementation."""
-import contextlib
-import socket
 from traceback import format_exception
 from inspect import iscoroutinefunction, isgeneratorfunction
 try:
