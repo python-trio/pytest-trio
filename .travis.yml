@@ -29,12 +29,3 @@ matrix:
     env: CHECK_FORMATTING=1
 script:
 - ci/travis.sh
-deploy:
-  provider: pypi
-  distributions: sdist bdist_wheel
-  user: touilleMan
-  password:
-    secure: aoSo8bi9kgPRWtVYLKEiR1mX4KFiujmWIF+nuiIL2BRy+62S35Iolkko+ZagtUz+STH0lv1f+6nRrWUffEnRbllt77n3QuSnWl5tsCetqIPMrZTyXuttQ8zTL/WPWfAPTh1zm+8J9F2dlArGJLqvOYl9/rBn9i6lnp5KIcTFGWGjWj0q9gV97r5rLDO3D7kGWNRLWP1rrBDouR9BsixNZiT8GyvRK2cEnFL3Vg/7VrGUC+oFwZObfbg411cfck5v5VcLVnRUYuBrSlOrw2pmeDnmj/CupNpk3gIGa0cBzuF1OUa/R6IBTiM7s0+i4P4gV5ZmGc7QdNJVL+F2lODhOCrg/5Z4cTU69n0ZSz2dm2AFNR7lPd2VNEnTlKhD0HsAtV1N0IvsnIV4H3DZvCB/uHZpMAon3JYd5G9RP/XqGkIADUx8vBe3toGK/eJ/TYyx65M/Me8tkKwZf0t+iZ2owPr35YrEzPXufEmxHquyu9aLVDo3MkXhepeiPsqT0SSvY1021YI8sOgWPQt8+eKOwWjV5t4zWw406uPPRKbX9gadF3r1KtuhwAwHJ8y1qfR55sV9TUFcAcCX6VdAD7sBs8Qi9GqPyv24WpN92tz2c+eAEn0el3wrKemBV9a8Vd590PpCOFA410r2IdEuqcmnavNu+16joEz8POXeGzpnXA0=
-  on:
-    tags: true
-    repo: python-trio/pytest-trio
