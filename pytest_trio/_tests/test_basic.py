@@ -2,14 +2,76 @@ import pytest
 import trio
 
 
-@pytest.mark.trio
-async def test_sleep_with_autojump_clock(autojump_clock):
-    assert trio.current_time() == 0
+def test_async_test_is_executed(testdir):
 
-    for i in range(10):
-        print("Sleeping {} seconds".format(i))
-        start_time = trio.current_time()
-        await trio.sleep(i)
-        end_time = trio.current_time()
+    testdir.makepyfile(
+        """
+        import pytest
+        import trio
 
-        assert end_time - start_time == i
+        async_test_called = False
+
+        @pytest.mark.trio
+        async def test_base():
+            global async_test_called
+            await trio.sleep(0)
+            async_test_called = True
+
+        def test_check_async_test_called():
+            assert async_test_called
+    """
+    )
+
+    result = testdir.runpytest()
+
+    result.assert_outcomes(passed=2)
+
+
+def test_async_test_as_class_method(testdir):
+
+    testdir.makepyfile(
+        """
+        import pytest
+        import trio
+
+        async_test_called = False
+
+        @pytest.fixture
+        async def fix():
+            await trio.sleep(0)
+            return 'fix'
+
+        class TestInClass:
+            @pytest.mark.trio
+            async def test_base(self, fix):
+                global async_test_called
+                assert fix == 'fix'
+                await trio.sleep(0)
+                async_test_called = True
+
+        def test_check_async_test_called():
+            assert async_test_called
+    """
+    )
+
+    result = testdir.runpytest()
+
+    result.assert_outcomes(passed=2)
+
+
+@pytest.mark.xfail(reason='Raises pytest internal error so far...')
+def test_sync_function_with_trio_mark(testdir):
+
+    testdir.makepyfile(
+        """
+        import pytest
+
+        @pytest.mark.trio
+        def test_invalid():
+            pass
+    """
+    )
+
+    result = testdir.runpytest()
+
+    result.assert_outcomes(error=1)
