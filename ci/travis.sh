@@ -92,7 +92,7 @@ else
     mkdir empty
     cd empty
 
-    pytest -W error -ra -v --pyargs pytest_trio --cov=pytest_trio --cov-config=../.coveragerc --verbose
+    coverage run --rcfile=../.coveragerc -m pytest -W error -ra -v --pyargs pytest_trio --verbose
 
     bash <(curl -s https://codecov.io/bash)
 fi
