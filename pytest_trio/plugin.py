@@ -210,33 +210,6 @@ def pytest_exception_interact(node, call, report):
 
 
 @pytest.fixture
-def unused_tcp_port():
-    """Find an unused localhost TCP port from 1024-65535 and return it."""
-    with contextlib.closing(socket.socket()) as sock:
-        sock.bind(('127.0.0.1', 0))
-        return sock.getsockname()[1]
-
-
-@pytest.fixture
-def unused_tcp_port_factory():
-    """A factory function, producing different unused TCP ports."""
-    produced = set()
-
-    def factory():
-        """Return an unused port."""
-        port = unused_tcp_port()
-
-        while port in produced:
-            port = unused_tcp_port()
-
-        produced.add(port)
-
-        return port
-
-    return factory
-
-
-@pytest.fixture
 def mock_clock():
     return MockClock()
 
