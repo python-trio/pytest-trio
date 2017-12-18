@@ -39,24 +39,17 @@ def _trio_test_runner_factory(item):
 async def _setup_async_fixtures_in(deps):
     resolved_deps = {**deps}
 
-    async def _resolve_and_update_deps(afunc, deps, entry):
-        deps[entry] = await afunc()
+    for depname, depval in resolved_deps.items():
+        if isinstance(depval, BaseAsyncFixture):
+            resolved_deps[depname] = await depval.setup()
 
-    async with trio.open_nursery() as nursery:
-        for depname, depval in resolved_deps.items():
-            if isinstance(depval, BaseAsyncFixture):
-                nursery.start_soon(
-                    _resolve_and_update_deps, depval.setup, resolved_deps,
-                    depname
-                )
     return resolved_deps
 
 
 async def _teardown_async_fixtures_in(deps):
-    async with trio.open_nursery() as nursery:
-        for depval in deps.values():
-            if isinstance(depval, BaseAsyncFixture):
-                nursery.start_soon(depval.teardown)
+    for depval in deps.values():
+        if isinstance(depval, BaseAsyncFixture):
+            await depval.teardown()
 
 
 class BaseAsyncFixture:
