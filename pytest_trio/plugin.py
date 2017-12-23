@@ -13,6 +13,7 @@ import pytest
 import trio
 from trio._util import acontextmanager
 from trio.testing import MockClock, trio_test
+from async_generator import async_generator, yield_
 
 
 def pytest_configure(config):
@@ -61,6 +62,7 @@ def _trio_test_runner_factory(item):
 
 
 @acontextmanager
+@async_generator
 async def _setup_async_fixtures_in(deps):
     __tracebackhide__ = True
 
@@ -68,22 +70,23 @@ async def _setup_async_fixtures_in(deps):
                                 if isinstance(v, BaseAsyncFixture)]
 
     if not need_resolved_deps_stack:
-        yield deps
+        await yield_(deps)
         return
 
     @acontextmanager
+    @async_generator
     async def _recursive_setup(deps_stack):
         __tracebackhide__ = True
         name, dep = deps_stack.pop()
         async with dep.setup() as resolved:
             if not deps_stack:
-                yield [(name, resolved)]
+                await yield_([(name, resolved)])
             else:
                 async with _recursive_setup(deps_stack) as remains_deps_stack_resolved:
-                    yield remains_deps_stack_resolved + [(name, resolved)]
+                    await yield_(remains_deps_stack_resolved + [(name, resolved)])
 
     async with _recursive_setup(need_resolved_deps_stack) as resolved_deps_stack:
-        yield {**deps, **dict(resolved_deps_stack)}
+        await yield_({**deps, **dict(resolved_deps_stack)})
 
 
 class BaseAsyncFixture:
@@ -98,15 +101,16 @@ class BaseAsyncFixture:
         self.result = None
 
     @acontextmanager
+    @async_generator
     async def setup(self):
         __tracebackhide__ = True
         if self.setup_done:
-            yield self.result
+            await yield_(self.result)
         else:
             async with _setup_async_fixtures_in(self.deps) as resolved_deps:
                 async with self._setup(resolved_deps) as self.result:
                     self.setup_done = True
-                    yield self.result
+                    await yield_(self.result)
 
     async def _setup(self):
         raise NotImplementedError()
@@ -118,11 +122,12 @@ class AsyncYieldFixture(BaseAsyncFixture):
     """
 
     @acontextmanager
+    @async_generator
     async def _setup(self, resolved_deps):
         __tracebackhide__ = True
         agen = self.fixturedef.func(**resolved_deps)
 
-        yield await agen.asend(None)
+        await yield_(await agen.asend(None))
 
         try:
             await agen.asend(None)
@@ -138,9 +143,10 @@ class SyncFixtureWithAsyncDeps(BaseAsyncFixture):
     """
 
     @acontextmanager
+    @async_generator
     async def _setup(self, resolved_deps):
         __tracebackhide__ = True
-        yield self.fixturedef.func(**resolved_deps)
+        await yield_(self.fixturedef.func(**resolved_deps))
 
 
 class SyncYieldFixtureWithAsyncDeps(BaseAsyncFixture):
@@ -149,11 +155,12 @@ class SyncYieldFixtureWithAsyncDeps(BaseAsyncFixture):
     """
 
     @acontextmanager
+    @async_generator
     async def _setup(self, resolved_deps):
         __tracebackhide__ = True
         gen = self.fixturedef.func(**resolved_deps)
 
-        yield gen.send(None)
+        await yield_(gen.send(None))
 
         try:
             gen.send(None)
@@ -169,9 +176,10 @@ class AsyncFixture(BaseAsyncFixture):
     """
 
     @acontextmanager
+    @async_generator
     async def _setup(self, resolved_deps):
         __tracebackhide__ = True
-        yield await self.fixturedef.func(**resolved_deps)
+        await yield_(await self.fixturedef.func(**resolved_deps))
 
 
 def _install_async_fixture_if_needed(fixturedef, request):
