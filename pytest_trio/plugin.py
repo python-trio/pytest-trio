@@ -31,22 +31,27 @@ def _trio_test_runner_factory(item):
     async def _bootstrap_fixture_and_run_test(**kwargs):
         __tracebackhide__ = True
         user_exc = None
-
-        try:
-            async with _setup_async_fixtures_in(kwargs) as resolved_kwargs:
-                try:
-                    await testfunc(**resolved_kwargs)
-                except BaseException as exc:
-                    # Regular pytest fixture don't have access to the test
-                    # exception in there teardown, we mimic this behavior here.
-                    user_exc = exc
-        except BaseException as exc:
-            # If we are here, the exception comes from the fixtures setup
-            # or teardown
-            if user_exc:
-                raise exc from user_exc
-            else:
-                raise exc
+        # Open the nursery exposed as fixture
+        async with trio.open_nursery() as nursery:
+            item._trio_nursery = nursery
+            try:
+                async with _setup_async_fixtures_in(kwargs) as resolved_kwargs:
+                    try:
+                        await testfunc(**resolved_kwargs)
+                    except BaseException as exc:
+                        # Regular pytest fixture don't have access to the test
+                        # exception in there teardown, we mimic this behavior here.
+                        user_exc = exc
+            except BaseException as exc:
+                # If we are here, the exception comes from the fixtures setup
+                # or teardown
+                if user_exc:
+                    raise exc from user_exc
+                else:
+                    raise exc
+            finally:
+                # No matter what the nursery fixture should be closed when test is over
+                nursery.cancel_scope.cancel()
 
         # Finally re-raise or original exception coming from the test if needed
         if user_exc:
@@ -220,3 +225,8 @@ def mock_clock():
 @pytest.fixture
 def autojump_clock():
     return MockClock(autojump_threshold=0)
+
+
+@pytest.fixture
+async def nursery(request):
+    return request.node._trio_nursery
