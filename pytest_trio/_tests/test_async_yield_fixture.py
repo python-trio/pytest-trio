@@ -224,3 +224,40 @@ def test_async_yield_fixture_with_multiple_yields(testdir):
     # TODO: should trigger error instead of failure
     # result.assert_outcomes(error=1)
     result.assert_outcomes(failed=1)
+
+
+@pytest.mark.skipif(sys.version_info < (3, 6), reason="requires python3.6")
+def test_async_yield_fixture_with_nursery(testdir):
+
+    testdir.makepyfile(
+        """
+        import pytest
+        import trio
+
+
+        async def handle_client(stream):
+            while True:
+                buff = await stream.receive_some(4)
+                await stream.send_all(buff)
+
+
+        @pytest.fixture
+        async def server():
+            async with trio.open_nursery() as nursery:
+                listeners = await nursery.start(trio.serve_tcp, handle_client, 0)
+                yield listeners[0]
+                nursery.cancel_scope.cancel()
+
+
+        @pytest.mark.trio
+        async def test_actual_test(server):
+            stream = await trio.testing.open_stream_to_socket_listener(server)
+            await stream.send_all(b'ping')
+            rep = await stream.receive_some(4)
+            assert rep == b'ping'
+    """
+    )
+
+    result = testdir.runpytest()
+
+    result.assert_outcomes(passed=1)
