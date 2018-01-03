@@ -5,11 +5,18 @@ Release history
 
 .. towncrier release notes start
 
-Pytest_Trio 0.2.0 (2017-12-15)
+Pytest_Trio 0.3.0 (2018-01-03)
 ------------------------------
 
 Features
 ~~~~~~~~
+
+- Add ``nursery`` fixture and improve teardown handling for yield fixture (`#25
+  <https://github.com/python-trio/pytest-trio/issues/25>`__)
+
+
+Pytest_Trio 0.2.0 (2017-12-15)
+------------------------------
 
 - Heavy improvements, add async yield fixture, fix bugs, add tests etc. (`#17
   <https://github.com/python-trio/pytest-trio/issues/17>`__)
