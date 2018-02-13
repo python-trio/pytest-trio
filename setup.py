@@ -38,5 +38,6 @@ setup(
         "Topic :: System :: Networking",
         "Topic :: Software Development :: Testing",
         "Framework :: Pytest",
+        "Framework :: Trio",
     ],
 )
