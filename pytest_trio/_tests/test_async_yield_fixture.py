@@ -261,3 +261,51 @@ def test_async_yield_fixture_with_nursery(testdir):
     result = testdir.runpytest()
 
     result.assert_outcomes(passed=1)
+
+
+@pytest.mark.skipif(sys.version_info < (3, 6), reason="requires python3.6")
+def test_async_yield_fixture_crashed_teardown_allow_other_teardowns(testdir):
+
+    testdir.makepyfile(
+        """
+        import pytest
+        import trio
+
+        events = []
+
+        @pytest.fixture
+        async def good_fixture():
+            async with trio.open_nursery() as nursery:
+                events.append('good_fixture setup')
+                yield
+                events.append('good_fixture teardown')
+
+        @pytest.fixture
+        async def bad_fixture():
+            async with trio.open_nursery() as nursery:
+                events.append('bad_fixture setup')
+                yield
+                events.append('bad_fixture teardown')
+                raise RuntimeError('Crash during fixture teardown')
+                # Cannot cancel offtask's scope
+
+        def test_before():
+            assert not events
+
+        @pytest.mark.trio
+        async def test_actual_test(bad_fixture, good_fixture):
+            pass
+
+        def test_after():
+            assert events == [
+                'good_fixture setup',
+                'bad_fixture setup',
+                'bad_fixture teardown',
+            ]
+    """
+    )
+
+    result = testdir.runpytest()
+
+    result.assert_outcomes(failed=1, passed=2)
+    result.stdout.re_match_lines('E       RuntimeError: Crash during fixture teardown')
