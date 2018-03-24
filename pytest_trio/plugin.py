@@ -1,19 +1,23 @@
 """pytest-trio implementation."""
+import sys
 from traceback import format_exception
 from inspect import iscoroutinefunction, isgeneratorfunction
-try:
-    from inspect import isasyncgenfunction
-except ImportError:
-    # `inspect.isasyncgenfunction` not available with Python<3.6
-    def isasyncgenfunction(x):
-        return False
-
-
 import pytest
 import trio
 from trio._util import acontextmanager
 from trio.testing import MockClock, trio_test
 from async_generator import async_generator, yield_
+
+if sys.version_info >= (3, 6):
+    from inspect import isasyncgenfunction
+    ORDERED_DICTS = True
+else:
+    # `inspect.isasyncgenfunction` not available with Python<3.6
+    def isasyncgenfunction(x):
+        return False
+
+    # Ordered dict (and **kwargs) not available with Python<3.6
+    ORDERED_DICTS = False
 
 
 def pytest_configure(config):
@@ -69,6 +73,9 @@ async def _setup_async_fixtures_in(deps):
     need_resolved_deps_stack = [
         (k, v) for k, v in deps.items() if isinstance(v, BaseAsyncFixture)
     ]
+    if not ORDERED_DICTS:
+        # Make the fixture resolution order determinist
+        need_resolved_deps_stack = sorted(need_resolved_deps_stack)
 
     if not need_resolved_deps_stack:
         await yield_(deps)
