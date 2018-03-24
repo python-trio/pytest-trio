@@ -134,14 +134,15 @@ class AsyncYieldFixture(BaseAsyncFixture):
         __tracebackhide__ = True
         agen = self.fixturedef.func(**resolved_deps)
 
-        await yield_(await agen.asend(None))
-
         try:
-            await agen.asend(None)
-        except StopAsyncIteration:
-            pass
-        else:
-            raise RuntimeError('Only one yield in fixture is allowed')
+            await yield_(await agen.asend(None))
+        finally:
+            try:
+                await agen.asend(None)
+            except StopAsyncIteration:
+                pass
+            else:
+                raise RuntimeError('Only one yield in fixture is allowed')
 
 
 class SyncFixtureWithAsyncDeps(BaseAsyncFixture):
@@ -167,14 +168,15 @@ class SyncYieldFixtureWithAsyncDeps(BaseAsyncFixture):
         __tracebackhide__ = True
         gen = self.fixturedef.func(**resolved_deps)
 
-        await yield_(gen.send(None))
-
         try:
-            gen.send(None)
-        except StopIteration:
-            pass
-        else:
-            raise RuntimeError('Only one yield in fixture is allowed')
+            await yield_(gen.send(None))
+        finally:
+            try:
+                gen.send(None)
+            except StopIteration:
+                pass
+            else:
+                raise RuntimeError('Only one yield in fixture is allowed')
 
 
 class AsyncFixture(BaseAsyncFixture):

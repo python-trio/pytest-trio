@@ -287,7 +287,6 @@ def test_async_yield_fixture_crashed_teardown_allow_other_teardowns(testdir):
                 yield
                 events.append('bad_fixture teardown')
                 raise RuntimeError('Crash during fixture teardown')
-                # Cannot cancel offtask's scope
 
         def test_before():
             assert not events
@@ -301,6 +300,7 @@ def test_async_yield_fixture_crashed_teardown_allow_other_teardowns(testdir):
                 'good_fixture setup',
                 'bad_fixture setup',
                 'bad_fixture teardown',
+                'good_fixture teardown',
             ]
     """
     )
@@ -308,4 +308,4 @@ def test_async_yield_fixture_crashed_teardown_allow_other_teardowns(testdir):
     result = testdir.runpytest()
 
     result.assert_outcomes(failed=1, passed=2)
-    result.stdout.re_match_lines('E       RuntimeError: Crash during fixture teardown')
+    result.stdout.re_match_lines([r'E\W+RuntimeError: Crash during fixture teardown'])
