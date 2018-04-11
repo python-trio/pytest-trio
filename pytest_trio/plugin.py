@@ -4,18 +4,14 @@ from traceback import format_exception
 from inspect import iscoroutinefunction, isgeneratorfunction
 import pytest
 import trio
-from trio._util import acontextmanager
 from trio.testing import MockClock, trio_test
-from async_generator import async_generator, yield_
+from async_generator import (
+    async_generator, yield_, asynccontextmanager, isasyncgenfunction
+)
 
 if sys.version_info >= (3, 6):
-    from inspect import isasyncgenfunction
     ORDERED_DICTS = True
 else:
-    # `inspect.isasyncgenfunction` not available with Python<3.6
-    def isasyncgenfunction(x):
-        return False
-
     # Ordered dict (and **kwargs) not available with Python<3.6
     ORDERED_DICTS = False
 
@@ -65,7 +61,7 @@ def _trio_test_runner_factory(item):
     return _bootstrap_fixture_and_run_test
 
 
-@acontextmanager
+@asynccontextmanager
 @async_generator
 async def _setup_async_fixtures_in(deps):
     __tracebackhide__ = True
@@ -81,7 +77,7 @@ async def _setup_async_fixtures_in(deps):
         await yield_(deps)
         return
 
-    @acontextmanager
+    @asynccontextmanager
     @async_generator
     async def _recursive_setup(deps_stack):
         __tracebackhide__ = True
@@ -114,7 +110,7 @@ class BaseAsyncFixture:
         self.setup_done = False
         self.result = None
 
-    @acontextmanager
+    @asynccontextmanager
     @async_generator
     async def setup(self):
         __tracebackhide__ = True
@@ -135,7 +131,7 @@ class AsyncYieldFixture(BaseAsyncFixture):
     Async generator fixture.
     """
 
-    @acontextmanager
+    @asynccontextmanager
     @async_generator
     async def _setup(self, resolved_deps):
         __tracebackhide__ = True
@@ -157,7 +153,7 @@ class SyncFixtureWithAsyncDeps(BaseAsyncFixture):
     Synchronous function fixture with asynchronous dependencies fixtures.
     """
 
-    @acontextmanager
+    @asynccontextmanager
     @async_generator
     async def _setup(self, resolved_deps):
         __tracebackhide__ = True
@@ -169,7 +165,7 @@ class SyncYieldFixtureWithAsyncDeps(BaseAsyncFixture):
     Synchronous generator fixture with asynchronous dependencies fixtures.
     """
 
-    @acontextmanager
+    @asynccontextmanager
     @async_generator
     async def _setup(self, resolved_deps):
         __tracebackhide__ = True
@@ -191,7 +187,7 @@ class AsyncFixture(BaseAsyncFixture):
     Regular async fixture (i.e. coroutine).
     """
 
-    @acontextmanager
+    @asynccontextmanager
     @async_generator
     async def _setup(self, resolved_deps):
         __tracebackhide__ = True
