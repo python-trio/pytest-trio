@@ -5,6 +5,13 @@ Release history
 
 .. towncrier release notes start
 
+Pytest_Trio 0.4.0 (2018-04-14)
+------------------------------
+
+- Fix compatibility with trio 0.4.0 (`#25
+  <https://github.com/python-trio/pytest-trio/pull/36>`__)
+
+
 Pytest_Trio 0.3.0 (2018-01-03)
 ------------------------------
 
