@@ -1,23 +1,43 @@
 import sys
 import pytest
+import re
 
 
-@pytest.mark.skipif(sys.version_info < (3, 6), reason="requires python3.6")
-def test_single_async_yield_fixture(testdir):
+@pytest.fixture(params=['Python>=36', 'async_generator'])
+def async_yield_implementation(request):
+    if request.param == 'Python>=36':
+        if sys.version_info < (3, 6):
+            pytest.skip("requires python3.6")
+        else:
 
+            def patch_code(code):
+                # Convert code to use Python>=3.6 builtin async generator
+                code = re.sub(r'(?m)^\s*@async_generator\n', r'', code)
+                code = re.sub(r'await yield_', r'yield', code)
+                return code
+
+            return patch_code
+    else:
+        return lambda x: x
+
+
+def test_single_async_yield_fixture(testdir, async_yield_implementation):
     testdir.makepyfile(
-        """
+        async_yield_implementation(
+            """
         import pytest
         import trio
+        from async_generator import async_generator, yield_
 
         events = []
 
         @pytest.fixture
+        @async_generator
         async def fix1():
             events.append('fix1 setup')
             await trio.sleep(0)
 
-            yield 'fix1'
+            await yield_('fix1')
 
             await trio.sleep(0)
             events.append('fix1 teardown')
@@ -36,6 +56,7 @@ def test_single_async_yield_fixture(testdir):
                 'fix1 teardown',
             ]
     """
+        )
     )
 
     result = testdir.runpytest()
@@ -43,32 +64,35 @@ def test_single_async_yield_fixture(testdir):
     result.assert_outcomes(passed=3)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 6), reason="requires python3.6")
-def test_nested_async_yield_fixture(testdir):
+def test_nested_async_yield_fixture(testdir, async_yield_implementation):
 
     testdir.makepyfile(
-        """
+        async_yield_implementation(
+            """
         import pytest
         import trio
+        from async_generator import async_generator, yield_
 
         events = []
 
         @pytest.fixture
+        @async_generator
         async def fix2():
             events.append('fix2 setup')
             await trio.sleep(0)
 
-            yield 'fix2'
+            await yield_('fix2')
 
             await trio.sleep(0)
             events.append('fix2 teardown')
 
         @pytest.fixture
+        @async_generator
         async def fix1(fix2):
             events.append('fix1 setup')
             await trio.sleep(0)
 
-            yield 'fix1'
+            await yield_('fix1')
 
             await trio.sleep(0)
             events.append('fix1 teardown')
@@ -92,6 +116,7 @@ def test_nested_async_yield_fixture(testdir):
                 'fix2 teardown',
             ]
     """
+        )
     )
 
     result = testdir.runpytest()
@@ -99,22 +124,26 @@ def test_nested_async_yield_fixture(testdir):
     result.assert_outcomes(passed=3)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 6), reason="requires python3.6")
-def test_async_yield_fixture_within_sync_fixture(testdir):
+def test_async_yield_fixture_within_sync_fixture(
+        testdir, async_yield_implementation
+):
 
     testdir.makepyfile(
-        """
+        async_yield_implementation(
+            """
         import pytest
         import trio
+        from async_generator import async_generator, yield_
 
         events = []
 
         @pytest.fixture
+        @async_generator
         async def fix2():
             events.append('fix2 setup')
             await trio.sleep(0)
 
-            yield 'fix2'
+            await yield_('fix2')
 
             await trio.sleep(0)
             events.append('fix2 teardown')
@@ -139,6 +168,7 @@ def test_async_yield_fixture_within_sync_fixture(testdir):
                 'fix2 teardown',
             ]
     """
+        )
     )
 
     result = testdir.runpytest()
@@ -146,22 +176,26 @@ def test_async_yield_fixture_within_sync_fixture(testdir):
     result.assert_outcomes(passed=3)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 6), reason="requires python3.6")
-def test_async_yield_fixture_within_sync_yield_fixture(testdir):
+def test_async_yield_fixture_within_sync_yield_fixture(
+        testdir, async_yield_implementation
+):
 
     testdir.makepyfile(
-        """
+        async_yield_implementation(
+            """
         import pytest
         import trio
+        from async_generator import async_generator, yield_
 
         events = []
 
         @pytest.fixture
+        @async_generator
         async def fix2():
             events.append('fix2 setup')
             await trio.sleep(0)
 
-            yield 'fix2'
+            await yield_('fix2')
 
             await trio.sleep(0)
             events.append('fix2 teardown')
@@ -191,6 +225,7 @@ def test_async_yield_fixture_within_sync_yield_fixture(testdir):
                 'fix2 teardown',
             ]
     """
+        )
     )
 
     result = testdir.runpytest()
@@ -198,25 +233,30 @@ def test_async_yield_fixture_within_sync_yield_fixture(testdir):
     result.assert_outcomes(passed=3)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 6), reason="requires python3.6")
-def test_async_yield_fixture_with_multiple_yields(testdir):
+def test_async_yield_fixture_with_multiple_yields(
+        testdir, async_yield_implementation
+):
 
     testdir.makepyfile(
-        """
+        async_yield_implementation(
+            """
         import pytest
         import trio
+        from async_generator import async_generator, yield_
 
         @pytest.fixture
+        @async_generator
         async def fix1():
             await trio.sleep(0)
-            yield 'good'
+            await yield_('good')
             await trio.sleep(0)
-            yield 'bad'
+            await yield_('bad')
 
         @pytest.mark.trio
         async def test_actual_test(fix1):
             pass
     """
+        )
     )
 
     result = testdir.runpytest()
@@ -226,13 +266,14 @@ def test_async_yield_fixture_with_multiple_yields(testdir):
     result.assert_outcomes(failed=1)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 6), reason="requires python3.6")
-def test_async_yield_fixture_with_nursery(testdir):
+def test_async_yield_fixture_with_nursery(testdir, async_yield_implementation):
 
     testdir.makepyfile(
-        """
+        async_yield_implementation(
+            """
         import pytest
         import trio
+        from async_generator import async_generator, yield_
 
 
         async def handle_client(stream):
@@ -242,10 +283,11 @@ def test_async_yield_fixture_with_nursery(testdir):
 
 
         @pytest.fixture
+        @async_generator
         async def server():
             async with trio.open_nursery() as nursery:
                 listeners = await nursery.start(trio.serve_tcp, handle_client, 0)
-                yield listeners[0]
+                await yield_(listeners[0])
                 nursery.cancel_scope.cancel()
 
 
@@ -256,6 +298,7 @@ def test_async_yield_fixture_with_nursery(testdir):
             rep = await stream.receive_some(4)
             assert rep == b'ping'
     """
+        )
     )
 
     result = testdir.runpytest()
@@ -263,28 +306,33 @@ def test_async_yield_fixture_with_nursery(testdir):
     result.assert_outcomes(passed=1)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 6), reason="requires python3.6")
-def test_async_yield_fixture_crashed_teardown_allow_other_teardowns(testdir):
+def test_async_yield_fixture_crashed_teardown_allow_other_teardowns(
+        testdir, async_yield_implementation
+):
 
     testdir.makepyfile(
-        """
+        async_yield_implementation(
+            """
         import pytest
         import trio
+        from async_generator import async_generator, yield_
 
         events = []
 
         @pytest.fixture
+        @async_generator
         async def good_fixture():
             async with trio.open_nursery() as nursery:
                 events.append('good_fixture setup')
-                yield
+                await yield_(None)
                 events.append('good_fixture teardown')
 
         @pytest.fixture
+        @async_generator
         async def bad_fixture():
             async with trio.open_nursery() as nursery:
                 events.append('bad_fixture setup')
-                yield
+                await yield_(None)
                 events.append('bad_fixture teardown')
                 raise RuntimeError('Crash during fixture teardown')
 
@@ -303,6 +351,7 @@ def test_async_yield_fixture_crashed_teardown_allow_other_teardowns(testdir):
                 'good_fixture teardown',
             ]
     """
+        )
     )
 
     result = testdir.runpytest()

@@ -17,7 +17,7 @@ setup(
     entry_points={'pytest11': ['trio = pytest_trio.plugin']},
     install_requires=[
         "trio",
-        "async_generator >= 1.6",
+        "async_generator >= 1.9",
     ],
     keywords=[
         'async',
