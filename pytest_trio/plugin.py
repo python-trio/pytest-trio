@@ -25,8 +25,18 @@ def pytest_configure(config):
     )
 
 
-def _trio_test_runner_factory(item):
-    testfunc = item.function
+def _trio_test_runner_factory(item, testfunc=None):
+    testfunc = testfunc or item.function
+
+    if getattr(testfunc, '_trio_test_runner_wrapped', False):
+        # We have already wrapped this, perhaps because we combined Hypothesis
+        # with pytest.mark.parametrize
+        return testfunc
+
+    if not iscoroutinefunction(testfunc):
+        pytest.fail(
+            'test function `%r` is marked trio but is not async' % item
+        )
 
     @trio_test
     async def _bootstrap_fixture_and_run_test(**kwargs):
@@ -58,6 +68,7 @@ def _trio_test_runner_factory(item):
         if user_exc:
             raise user_exc
 
+    _bootstrap_fixture_and_run_test._trio_test_runner_wrapped = True
     return _bootstrap_fixture_and_run_test
 
 
@@ -215,11 +226,18 @@ def _install_async_fixture_if_needed(fixturedef, request):
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_call(item):
     if 'trio' in item.keywords:
-        if not iscoroutinefunction(item.obj):
-            pytest.fail(
-                'test function `%r` is marked trio but is not async' % item
+        if hasattr(item.obj, 'hypothesis'):
+            # If it's a Hypothesis test, we go in a layer.
+            item.obj.hypothesis.inner_test = _trio_test_runner_factory(
+                item, item.obj.hypothesis.inner_test
             )
-        item.obj = _trio_test_runner_factory(item)
+        elif getattr(item.obj, 'is_hypothesis_test', False):
+            pytest.fail(
+                'test function `%r` is using Hypothesis, but pytest-trio '
+                'only works with Hypothesis 3.64.0 or later.' % item
+            )
+        else:
+            item.obj = _trio_test_runner_factory(item)
 
     yield
 

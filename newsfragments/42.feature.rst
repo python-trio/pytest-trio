@@ -1,0 +1,2 @@
+pytest-trio now integrates with `Hypothesis <https://hypothesis.readthedocs.io>`_
+to support ``@given`` on async tests using Trio.
