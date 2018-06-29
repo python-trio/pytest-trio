@@ -5,6 +5,17 @@ Release history
 
 .. towncrier release notes start
 
+Pytest_Trio 0.4.2 (2018-06-29)
+------------------------------
+
+Features
+~~~~~~~~
+
+- pytest-trio now integrates with `Hypothesis
+  <https://hypothesis.readthedocs.io>`_ to support ``@given`` on async tests
+  using Trio. (`#42 <https://github.com/python-trio/pytest-trio/issues/42>`__)
+
+
 Pytest_Trio 0.4.1 (2018-04-14)
 ------------------------------
 
