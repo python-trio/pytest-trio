@@ -9,6 +9,10 @@ from async_generator import (
     async_generator, yield_, asynccontextmanager, isasyncgenfunction
 )
 
+################################################################
+# Basic setup
+################################################################
+
 if sys.version_info >= (3, 6):
     ORDERED_DICTS = True
 else:
@@ -23,6 +27,18 @@ def pytest_configure(config):
         "mark the test as an async trio test; "
         "it will be run using trio.run"
     )
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_exception_interact(node, call, report):
+    if issubclass(call.excinfo.type, trio.MultiError):
+        # TODO: not really elegant (pytest cannot output color with this hack)
+        report.longrepr = ''.join(format_exception(*call.excinfo._excinfo))
+
+
+################################################################
+# Core support for running tests and constructing fixtures
+################################################################
 
 
 def _trio_test_runner_factory(item, testfunc=None):
@@ -245,11 +261,9 @@ def pytest_fixture_setup(fixturedef, request):
         return _install_async_fixture_if_needed(fixturedef, request)
 
 
-@pytest.hookimpl(tryfirst=True)
-def pytest_exception_interact(node, call, report):
-    if issubclass(call.excinfo.type, trio.MultiError):
-        # TODO: not really elegant (pytest cannot output color with this hack)
-        report.longrepr = ''.join(format_exception(*call.excinfo._excinfo))
+################################################################
+# Built-in fixtures
+################################################################
 
 
 @pytest.fixture
