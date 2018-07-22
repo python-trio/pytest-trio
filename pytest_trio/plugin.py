@@ -17,7 +17,7 @@ else:
 
 
 def pytest_configure(config):
-    """Inject documentation."""
+    # So that it shows up in 'pytest --markers' output:
     config.addinivalue_line(
         "markers", "trio: "
         "mark the test as an async trio test; "
