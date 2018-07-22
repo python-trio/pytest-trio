@@ -97,16 +97,14 @@ async def _setup_async_fixtures_in(deps):
             if not deps_stack:
                 await yield_([(name, resolved)])
             else:
-                async with _recursive_setup(
-                    deps_stack
-                ) as remains_deps_stack_resolved:
+                async with _recursive_setup(deps_stack
+                                            ) as remains_deps_stack_resolved:
                     await yield_(
                         remains_deps_stack_resolved + [(name, resolved)]
                     )
 
-    async with _recursive_setup(
-        need_resolved_deps_stack
-    ) as resolved_deps_stack:
+    async with _recursive_setup(need_resolved_deps_stack
+                                ) as resolved_deps_stack:
         await yield_({**deps, **dict(resolved_deps_stack)})
 
 
