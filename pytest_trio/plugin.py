@@ -67,7 +67,8 @@ def _trio_test_runner_factory(item, testfunc=None):
                         await testfunc(**resolved_kwargs)
                     except BaseException as exc:
                         # Regular pytest fixture don't have access to the test
-                        # exception in there teardown, we mimic this behavior here.
+                        # exception in there teardown, we mimic this behavior
+                        # here.
                         user_exc = exc
             except BaseException as exc:
                 # If we are here, the exception comes from the fixtures setup
@@ -77,10 +78,12 @@ def _trio_test_runner_factory(item, testfunc=None):
                 else:
                     raise exc
             finally:
-                # No matter what the nursery fixture should be closed when test is over
+                # No matter what the nursery fixture should be closed when
+                # test is over
                 nursery.cancel_scope.cancel()
 
-        # Finally re-raise or original exception coming from the test if needed
+        # Finally re-raise or original exception coming from the test if
+        # needed
         if user_exc:
             raise user_exc
 
