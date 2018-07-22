@@ -212,8 +212,7 @@ def _install_async_fixture_if_needed(fixturedef, request):
         asyncfix = AsyncFixture(fixturedef, deps)
     elif isasyncgenfunction(fixturedef.func):
         asyncfix = AsyncYieldFixture(fixturedef, deps)
-    elif any(dep for dep in deps.values()
-             if isinstance(dep, BaseAsyncFixture)):
+    elif any(isinstance(dep, BaseAsyncFixture) for dep in deps.values()):
         if isgeneratorfunction(fixturedef.func):
             asyncfix = SyncYieldFixtureWithAsyncDeps(fixturedef, deps)
         else:
