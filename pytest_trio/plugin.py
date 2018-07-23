@@ -9,6 +9,10 @@ from async_generator import (
     async_generator, yield_, asynccontextmanager, isasyncgenfunction
 )
 
+################################################################
+# Basic setup
+################################################################
+
 if sys.version_info >= (3, 6):
     ORDERED_DICTS = True
 else:
@@ -17,12 +21,24 @@ else:
 
 
 def pytest_configure(config):
-    """Inject documentation."""
+    # So that it shows up in 'pytest --markers' output:
     config.addinivalue_line(
         "markers", "trio: "
         "mark the test as an async trio test; "
         "it will be run using trio.run"
     )
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_exception_interact(node, call, report):
+    if issubclass(call.excinfo.type, trio.MultiError):
+        # TODO: not really elegant (pytest cannot output color with this hack)
+        report.longrepr = ''.join(format_exception(*call.excinfo._excinfo))
+
+
+################################################################
+# Core support for running tests and constructing fixtures
+################################################################
 
 
 def _trio_test_runner_factory(item, testfunc=None):
@@ -51,7 +67,8 @@ def _trio_test_runner_factory(item, testfunc=None):
                         await testfunc(**resolved_kwargs)
                     except BaseException as exc:
                         # Regular pytest fixture don't have access to the test
-                        # exception in there teardown, we mimic this behavior here.
+                        # exception in there teardown, we mimic this behavior
+                        # here.
                         user_exc = exc
             except BaseException as exc:
                 # If we are here, the exception comes from the fixtures setup
@@ -61,10 +78,12 @@ def _trio_test_runner_factory(item, testfunc=None):
                 else:
                     raise exc
             finally:
-                # No matter what the nursery fixture should be closed when test is over
+                # No matter what the nursery fixture should be closed when
+                # test is over
                 nursery.cancel_scope.cancel()
 
-        # Finally re-raise or original exception coming from the test if needed
+        # Finally re-raise or original exception coming from the test if
+        # needed
         if user_exc:
             raise user_exc
 
@@ -97,16 +116,14 @@ async def _setup_async_fixtures_in(deps):
             if not deps_stack:
                 await yield_([(name, resolved)])
             else:
-                async with _recursive_setup(
-                    deps_stack
-                ) as remains_deps_stack_resolved:
+                async with _recursive_setup(deps_stack
+                                            ) as remains_deps_stack_resolved:
                     await yield_(
                         remains_deps_stack_resolved + [(name, resolved)]
                     )
 
-    async with _recursive_setup(
-        need_resolved_deps_stack
-    ) as resolved_deps_stack:
+    async with _recursive_setup(need_resolved_deps_stack
+                                ) as resolved_deps_stack:
         await yield_({**deps, **dict(resolved_deps_stack)})
 
 
@@ -212,8 +229,7 @@ def _install_async_fixture_if_needed(fixturedef, request):
         asyncfix = AsyncFixture(fixturedef, deps)
     elif isasyncgenfunction(fixturedef.func):
         asyncfix = AsyncYieldFixture(fixturedef, deps)
-    elif any(dep for dep in deps.values()
-             if isinstance(dep, BaseAsyncFixture)):
+    elif any(isinstance(dep, BaseAsyncFixture) for dep in deps.values()):
         if isgeneratorfunction(fixturedef.func):
             asyncfix = SyncYieldFixtureWithAsyncDeps(fixturedef, deps)
         else:
@@ -248,11 +264,9 @@ def pytest_fixture_setup(fixturedef, request):
         return _install_async_fixture_if_needed(fixturedef, request)
 
 
-@pytest.hookimpl(tryfirst=True)
-def pytest_exception_interact(node, call, report):
-    if issubclass(call.excinfo.type, trio.MultiError):
-        # TODO: not really elegant (pytest cannot output color with this hack)
-        report.longrepr = ''.join(format_exception(*call.excinfo._excinfo))
+################################################################
+# Built-in fixtures
+################################################################
 
 
 @pytest.fixture
