@@ -20,6 +20,15 @@ else:
     ORDERED_DICTS = False
 
 
+def pytest_addoption(parser):
+    parser.addini(
+        "trio_mode",
+        "should pytest-trio handle all async functions?",
+        type="bool",
+        default=False,
+    )
+
+
 def pytest_configure(config):
     # So that it shows up in 'pytest --markers' output:
     config.addinivalue_line(
@@ -262,6 +271,26 @@ def pytest_runtest_call(item):
 def pytest_fixture_setup(fixturedef, request):
     if 'trio' in request.keywords:
         return _install_async_fixture_if_needed(fixturedef, request)
+
+
+################################################################
+# Trio mode
+################################################################
+
+
+def automark(items):
+    for item in items:
+        if hasattr(item.obj, "hypothesis"):
+            test_func = item.obj.hypothesis.inner_test
+        else:
+            test_func = item.obj
+        if iscoroutinefunction(test_func):
+            item.add_marker(pytest.mark.trio)
+
+
+def pytest_collection_modifyitems(config, items):
+    if config.getini("trio_mode"):
+        automark(items)
 
 
 ################################################################
