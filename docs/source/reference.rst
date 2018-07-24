@@ -70,8 +70,8 @@ the setup and teardown inside the test's call to :func:`trio.run`.
 The following fixtures are treated as Trio fixtures:
 
 * Any function decorated with ``@pytest_trio.trio_fixture``.
-* If Trio mode is enabled, then any *async* function decorated with
-  ``@pytest.fixture`` automatically becomes a Trio fixture.
+* Any async function decorated with ``@pytest.fixture``, *if*
+  requested by a Trio test.
 * Any fixture which depends on a Trio fixture.
 
 The most notable difference between regular fixtures and Trio fixtures
