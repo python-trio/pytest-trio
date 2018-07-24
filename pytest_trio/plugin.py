@@ -275,5 +275,16 @@ def autojump_clock():
 
 
 @trio_fixture
-def nursery(request):
+def test_nursery(request):
     return request.node._trio_nursery
+
+
+@trio_fixture
+def nursery(test_nursery):
+    import warnings
+    warnings.warn(
+        FutureWarning(
+            "The 'nursery' fixture has been renamed to 'test_nursery'"
+        )
+    )
+    return test_nursery

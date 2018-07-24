@@ -9,8 +9,8 @@ async def handle_client(stream):
 
 
 @pytest.fixture
-async def server(nursery):
-    listeners = await nursery.start(trio.serve_tcp, handle_client, 0)
+async def server(test_nursery):
+    listeners = await test_nursery.start(trio.serve_tcp, handle_client, 0)
     return listeners[0]
 
 
