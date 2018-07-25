@@ -18,12 +18,12 @@ and async I/O in Python. Features include:
 * Useful fixtures included: use ``autojump_clock`` for easy testing of
   code with timeouts.
 
-* Write your own async fixtures: start up a Trio-based server inside a
-  fixture, and then connect to it from your test.
+* Write your own async fixtures: set up an async database connection
+  or start a server inside a fixture, and then use it in your tests.
 
-* Use `Hypothesis <https://hypothesis.works/>`__? This plugin
-  integrates with Hypothesis, so your async tests can use
-  property-based testing.
+* Integration with the fabulous `Hypothesis
+  <https://hypothesis.works/>`__ library, so your async tests can use
+  property-based testing: just use ``@given`` like you're used to.
 
 
 Vital statistics

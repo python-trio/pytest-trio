@@ -146,33 +146,31 @@ world).
 Async fixtures
 --------------
 
-Now that we have ``trio_mode`` activated, we can also write async
-fixtures::
-
-   import pytest
-   import trio
+We can write async fixtures::
 
    @pytest.fixture
-   async def fixture_that_sleeps_for_some_reason():
-       await trio.sleep(1)
-       return "slept"
+   async def db_connection():
+       return await some_async_db_library.connect(...)
 
-   async def test_example(fixture_that_sleeps_for_some_reason):
-       assert fixture_that_sleeps_for_some_reason == "slept"
+   async def test_example(db_connection):
+       await db_connection.execute("SELECT * FROM ...")
 
 If you need to run teardown code, you can use ``yield``, just like a
 regular pytest fixture::
 
+   # DB connection that wraps each test in a transaction and rolls it
+   # back afterwards
    @pytest.fixture
-   async def connection_to_httpbin():
+   async def rolback_db_connection():
        # Setup code
-       stream = await trio.open_tcp_stream("httpbin", 80)
+       connection = await some_async_db_library.connect(...)
+       await connection.execute("START TRANSACTION")
 
        # The value of this fixture
-       yield stream
+       yield connection
 
        # Teardown code, executed after the test is done
-       await stream.close()
+       await connection.execute("ROLLBACK")
 
 
 .. _server-fixture-example:
@@ -194,8 +192,9 @@ arbitrary data, and then send it back out again::
 
 Since this is such complicated and sophisticated code, we want to
 write lots of tests to make sure it's working correctly. To test it,
-we need to start one task to run the echo server, and then connect to
-it from a second task and send it test data. Here's a first attempt::
+we want to start a background task running the echo server itself, and
+then we'll connect to it, send it test data, and see how it responds.
+Here's a first attempt::
 
    # Let's cross our fingers and hope no-one else is using this port...
    PORT = 14923
@@ -226,14 +225,15 @@ error out. After all – ``nursery.start_soon`` only promises that the
 task will be started *soon*, not that it's actually happened.
 
 To solve this race condition, we should switch to using ``await
-nursery.start(...)``. You should `read its docs for full details
+nursery.start(...)``. You can `read its docs for full details
 <https://trio.readthedocs.io/en/latest/reference-core.html#trio.The%20nursery%20interface.start>`__,
-but basically the idea is that this starts up a background task, and
-waits for it to finish getting started before returning. This requires
-some cooperation from the function you're calling: it has to tell
-``nursery.start`` when it's finished setting up. Fortunately,
-:func:`trio.serve_tcp` is already set up to cooperate with
-``nursery.start``, so we can write::
+but basically the idea is that both ``nursery.start_soon(...)`` and
+``await nursery.start(...)`` create background tasks, but only
+``start`` waits for the new task to finish getting itself set up. This
+requires some cooperation from the background task: it has to notify
+``nursery.start`` when it's ready. Fortunately, :func:`trio.serve_tcp`
+already knows how to cooperated with ``nursery.start``, so we can
+write::
 
    # Let's cross our fingers and hope no-one else is using this port...
    PORT = 14923
@@ -259,11 +259,11 @@ like this is a bad idea, because port numbers are a machine-wide
 resource, so if we're unlucky some other program might already be
 using it. What we really want to do is to tell :func:`~trio.serve_tcp`
 to pick a random port that no-one else is using. It turns out that
-this is easy: if you request port 0, then the operating system instead
-picks an unused one for you automatically. Problem solved!
+this is easy: if you request port 0, then the operating system will
+pick an unused one for you automatically. Problem solved!
 
 But wait... if the operating system is picking the port for us, how do
-we know figure out which one it picked, so we can connect?
+we know figure out which one it picked, so we can connect to it later?
 
 Well, there's no way to predict the port ahead of time. But after
 :func:`~trio.serve_tcp` has opened a port, it can check and see what
@@ -303,10 +303,10 @@ Putting it all together::
 Okay, this is getting closer... but if we try to run it, we'll find
 that it just hangs instead of completing. What's going on?
 
-The problem is that after we finish doing our tests, we need to shut
-down the server – otherwise it will keep waiting for new connections
-forever, and the test will never finish. We can fix this by cancelling
-the nursery once we're done with it::
+The problem is that we need to shut down the server – otherwise it
+will keep waiting for new connections forever, and the test will never
+finish. We can fix this by cancelling everything in the nursery once
+our test is finished::
 
    # Don't copy this -- it finally works, but we can still do better!
    async def test_attempt_4():
@@ -347,15 +347,16 @@ Probably our first attempt will look something like::
            nursery.cancel_scope.cancel()
 
 Unfortunately, this doesn't work. **You cannot make a fixture that
-opens a nursery, and then yields from inside the nursery block.**
-Sorry.
+opens a nursery or cancel scope, and then yields from inside the
+nursery or cancel scope block.** Sorry 🙁. We're `working on it
+<https://github.com/python-trio/pytest-trio/issues/55>`__.
 
 Instead, pytest-trio provides a built-in fixture called
-``test_nursery``. This is a nursery that pytest-trio creates
-internally, that lasts for as long as the test is running, and then
-pytest-trio cancels it. Which is exactly what we need – in fact it's
-even simpler than our first try, because now we don't need to worry
-about cancelling the nursery ourselves.
+``test_nursery``. This is a nursery that's created before each test,
+and then automatically cancelled after the test finishes. Which is
+exactly what we need – in fact it's even simpler than our first try,
+because now we don't need to worry about cancelling the nursery
+ourselves.
 
 So here's our complete, final version::
 
@@ -365,6 +366,7 @@ So here's our complete, final version::
    import trio
    from trio.testing import open_stream_to_socket_listener
 
+   # The code being tested:
    async def echo_server_handler(stream):
        while True:
            data = await stream.receive_some(1000)
@@ -372,6 +374,7 @@ So here's our complete, final version::
                break
            await stream.send_all(data)
 
+   # The fixture:
    @pytest.fixture
    async def echo_server_connection(test_nursery):
        listeners = await test_nursery.start(
@@ -381,6 +384,7 @@ So here's our complete, final version::
        async with client:
            yield client
 
+   # A test using the fixture:
    async def test_final(echo_server_connection):
        for test_byte in [b"a", b"c", b"c"]:
            await echo_server_connection.send_all(test_byte)

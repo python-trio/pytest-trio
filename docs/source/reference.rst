@@ -6,16 +6,21 @@ Trio mode
 
 Most users will want to enable "Trio mode". Without Trio mode:
 
-* Async tests have to be decorated with ``@pytest.mark.trio``
-* Async fixtures have to be decorated with
-  ``@pytest_trio.trio_fixture`` (instead of ``@pytest.fixture``).
+* Pytest-trio only handles tests that have been decorated with
+  ``@pytest.mark.trio``
+* Pytest-trio only handles fixtures if they're async *and* used by a
+  test that's decorated with ``@pytest.mark.trio``, or if they're
+  decorated with ``@pytest_trio.trio_fixture`` (instead of
+  ``@pytest.fixture``).
 
-When Trio mode is enabled, two things happen:
+When Trio mode is enabled, two extra things happen:
 
 * Async tests automatically have the ``trio`` mark added, so you don't
   have to do it yourself.
 * Async fixtures using ``@pytest.fixture`` automatically get converted
-  to Trio fixtures.
+  to Trio fixtures. (The main effect of this is that it helps you
+  catch mistakes where a you use an async fixture with a non-async
+  test.)
 
 There are two ways to enable Trio mode.
 
@@ -166,11 +171,18 @@ pytest-trio. Hypothesis runs your test multiple times with different
 examples of random data. For each example, pytest-trio calls
 :func:`trio.run` again (so you get a fresh clean Trio environment),
 sets up any Trio fixtures, runs the actual test, and then tears down
-any Trio fixtures. Most of the time this shouldn't matter (and `is
-probably what you want anyway
+any Trio fixtures. Notice that this is a bit different than regular
+pytest fixtures, which are `instantiated once and then re-used for all
+<https://github.com/pytest-dev/pytest/issues/916>`__. Most of the time
+this shouldn't matter (and `is probably what you want anyway
 <https://github.com/HypothesisWorks/hypothesis/issues/377>`__), but in
-some unusual cases it could surprise you. And note that this only
-applies to Trio fixtures – if a Trio test uses a mix of Trio fixtures
-and regular fixtures, then the regular fixtures will still only
-`instantiated once and re-used for all examples
-<https://github.com/pytest-dev/pytest/issues/916>`__.
+some unusual cases it could surprise you. And this only applies to
+Trio fixtures – if a Trio test uses a mix of regular fixtures and Trio
+fixtures, then the regular fixtures will be reused, while the Trio
+fixtures will be repeatedly reinstantiated.
+
+Also, pytest-trio only handles ``@given``\-based tests. If you want to
+write `stateful tests
+<https://hypothesis.readthedocs.io/en/latest/stateful.html>`__ for
+Trio-based libraries, then check out `hypothesis-trio
+<https://github.com/python-trio/hypothesis-trio>`__.
