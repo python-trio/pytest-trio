@@ -1,6 +1,8 @@
 import pytest
 from pytest_trio import trio_fixture
 
+from .helpers import enable_trio_mode
+
 
 def test_trio_fixture_with_non_trio_test(testdir):
     testdir.makepyfile(
@@ -34,11 +36,11 @@ def test_trio_fixture_with_non_trio_test(testdir):
 
     result.assert_outcomes(passed=1, error=2)
     result.stdout.fnmatch_lines(
-        ["*Trio fixtures can only be used by Trio tests*"]
+        ["*: Trio fixtures can only be used by Trio tests*"]
     )
 
 
-def test_trio_fixture_with_wrong_scope(testdir):
+def test_trio_fixture_with_wrong_scope_without_trio_mode(testdir):
     # There's a trick here: when you have a non-function-scope fixture, it's
     # not instantiated for any particular function (obviously). So... when our
     # pytest_fixture_setup hook tries to check for marks, it can't normally
@@ -49,7 +51,6 @@ def test_trio_fixture_with_wrong_scope(testdir):
     testdir.makepyfile(
         """
         import pytest
-        import pytest_trio
 
         @pytest.fixture(scope="class")
         async def async_class_fixture():
@@ -65,4 +66,54 @@ def test_trio_fixture_with_wrong_scope(testdir):
     result = testdir.runpytest()
 
     result.assert_outcomes(error=1)
-    result.stdout.fnmatch_lines(["*must be function-scope*"])
+    result.stdout.fnmatch_lines(["*: Trio fixtures must be function-scope*"])
+
+
+@enable_trio_mode
+def test_trio_fixture_with_wrong_scope_in_trio_mode(testdir, enable_trio_mode):
+    enable_trio_mode(testdir)
+
+    testdir.makepyfile(
+        """
+        import pytest
+
+        @pytest.fixture(scope="session")
+        async def async_session_fixture():
+            pass
+
+
+        async def test_whatever(async_session_fixture):
+            pass
+        """
+    )
+
+    result = testdir.runpytest()
+
+    result.assert_outcomes(error=1)
+    result.stdout.fnmatch_lines(["*: Trio fixtures must be function-scope*"])
+
+
+@enable_trio_mode
+def test_async_fixture_with_sync_test_in_trio_mode(testdir, enable_trio_mode):
+    enable_trio_mode(testdir)
+
+    testdir.makepyfile(
+        """
+        import pytest
+
+        @pytest.fixture
+        async def async_fixture():
+            pass
+
+
+        def test_whatever(async_fixture):
+            pass
+        """
+    )
+
+    result = testdir.runpytest()
+
+    result.assert_outcomes(error=1)
+    result.stdout.fnmatch_lines(
+        ["*: Trio fixtures can only be used by Trio tests*"]
+    )

@@ -1,5 +1,7 @@
 import pytest
 
+from .helpers import enable_trio_mode
+
 test_text = """
 import pytest
 import trio
@@ -26,19 +28,11 @@ async def test_hypothesis_fail(b):
 """
 
 
-def test_trio_mode_pytest_ini(testdir):
+@enable_trio_mode
+def test_trio_mode(testdir, enable_trio_mode):
+    enable_trio_mode(testdir)
+
     testdir.makepyfile(test_text)
-
-    testdir.makefile(".ini", pytest="[pytest]\ntrio_mode = true\n")
-
-    result = testdir.runpytest()
-    result.assert_outcomes(passed=2, failed=2)
-
-
-def test_trio_mode_conftest(testdir):
-    testdir.makepyfile(test_text)
-
-    testdir.makeconftest("from pytest_trio.enable_trio_mode import *")
 
     result = testdir.runpytest()
     result.assert_outcomes(passed=2, failed=2)

@@ -214,22 +214,26 @@ def trio_fixture(func):
     return pytest.fixture(func)
 
 
-def _is_trio_fixture(func, is_trio_test, deps):
+def _is_trio_fixture(func, coerce_async, deps):
     if getattr(func, "_force_trio_fixture", False):
         return True
-    if is_trio_test:
-        if iscoroutinefunction(func) or isasyncgenfunction(func):
-            return True
+    if (coerce_async and
+        (iscoroutinefunction(func) or isasyncgenfunction(func))):
+        return True
     if any(isinstance(dep, TrioFixture) for dep in deps.values()):
         return True
     return False
 
 
-@pytest.hookimpl
-def pytest_fixture_setup(fixturedef, request):
+def handle_fixture(fixturedef, request, force_trio_mode):
     is_trio_test = (request.node.get_closest_marker("trio") is not None)
+    if force_trio_mode:
+        is_trio_mode = True
+    else:
+        is_trio_mode = request.node.config.getini("trio_mode")
+    coerce_async = (is_trio_test or is_trio_mode)
     deps = {dep: request.getfixturevalue(dep) for dep in fixturedef.argnames}
-    if _is_trio_fixture(fixturedef.func, is_trio_test, deps):
+    if _is_trio_fixture(fixturedef.func, coerce_async, deps):
         if request.scope != "function":
             raise RuntimeError("Trio fixtures must be function-scope")
         if not is_trio_test:
@@ -237,6 +241,11 @@ def pytest_fixture_setup(fixturedef, request):
         fixture = TrioFixture(fixturedef, deps)
         fixturedef.cached_result = (fixture, request.param_index, None)
         return fixture
+
+
+@pytest.hookimpl
+def pytest_fixture_setup(fixturedef, request):
+    return handle_fixture(fixturedef, request, force_trio_mode=False)
 
 
 ################################################################
