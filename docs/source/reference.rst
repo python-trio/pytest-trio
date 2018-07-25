@@ -76,7 +76,8 @@ The following fixtures are treated as Trio fixtures:
 
 * Any function decorated with ``@pytest_trio.trio_fixture``.
 * Any async function decorated with ``@pytest.fixture``, *if*
-  requested by a Trio test.
+  Trio mode is enabled *or* this fixture is being requested by a Trio
+  test.
 * Any fixture which depends on a Trio fixture.
 
 The most notable difference between regular fixtures and Trio fixtures
