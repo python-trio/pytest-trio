@@ -161,7 +161,7 @@ regular pytest fixture::
    # DB connection that wraps each test in a transaction and rolls it
    # back afterwards
    @pytest.fixture
-   async def rolback_db_connection():
+   async def rollback_db_connection():
        # Setup code
        connection = await some_async_db_library.connect(...)
        await connection.execute("START TRANSACTION")
