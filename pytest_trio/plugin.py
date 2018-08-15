@@ -168,11 +168,11 @@ class TrioFixture:
     async def _fixture_manager(self, ctx):
         __tracebackhide__ = True
         try:
-            async with trio.open_nursery() as fixture_nursery:
+            async with trio.open_nursery() as nursery_fixture:
                 try:
-                    await yield_(fixture_nursery)
+                    await yield_(nursery_fixture)
                 finally:
-                    fixture_nursery.cancel_scope.cancel()
+                    nursery_fixture.cancel_scope.cancel()
         except BaseException as exc:
             ctx.crash(exc)
         finally:
@@ -182,17 +182,17 @@ class TrioFixture:
     async def run(self, ctx):
         __tracebackhide__ = True
 
-        # This 'with' block handles the fixture_nursery lifetime, the
+        # This 'with' block handles the nursery fixture lifetime, the
         # teardone_done event, and crashing the context if there's an
         # unhandled exception.
-        async with self._fixture_manager(ctx) as fixture_nursery:
+        async with self._fixture_manager(ctx) as nursery_fixture:
             # Resolve our kwargs
             resolved_kwargs = {}
             for name, value in self._pytest_kwargs.items():
                 if isinstance(value, TrioFixture):
                     await value.setup_done.wait()
-                    if value.fixture_value is FIXTURE_NURSERY_PLACEHOLDER:
-                        resolved_kwargs[name] = fixture_nursery
+                    if value.fixture_value is NURSERY_FIXTURE_PLACEHOLDER:
+                        resolved_kwargs[name] = nursery_fixture
                     else:
                         resolved_kwargs[name] = value.fixture_value
                 else:
@@ -400,13 +400,8 @@ def pytest_collection_modifyitems(config, items):
 ################################################################
 
 
-class FIXTURE_NURSERY_PLACEHOLDER:
+class NURSERY_FIXTURE_PLACEHOLDER:
     pass
-
-
-@trio_fixture
-def fixture_nursery():
-    return FIXTURE_NURSERY_PLACEHOLDER
 
 
 @pytest.fixture
@@ -421,9 +416,4 @@ def autojump_clock():
 
 @trio_fixture
 def nursery(request):
-    warnings.warn(
-        FutureWarning(
-            "The 'nursery' fixture has been deprecated; use fixture_nursery instead"
-        )
-    )
-    return FIXTURE_NURSERY_PLACEHOLDER
+    return NURSERY_FIXTURE_PLACEHOLDER
