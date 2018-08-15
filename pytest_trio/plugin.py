@@ -173,7 +173,6 @@ class TrioFixture:
                 finally:
                     fixture_nursery.cancel_scope.cancel()
         except BaseException as exc:
-            print(repr(exc))
             ctx.crash(exc)
         finally:
             self.setup_done.set()
@@ -314,8 +313,6 @@ def _trio_test_runner_factory(item, testfunc=None):
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_call(item):
-    print(item)
-    print(item.get_closest_marker("trio"))
     if item.get_closest_marker("trio") is not None:
         if hasattr(item.obj, 'hypothesis'):
             # If it's a Hypothesis test, we go in a layer.
