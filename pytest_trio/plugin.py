@@ -110,6 +110,7 @@ def pytest_exception_interact(node, call, report):
 # follow the normal teardown sequence, and so on – but since the test is
 # cancelled, the teardown sequence should start immediately.
 
+
 class TrioTestContext:
     def __init__(self):
         self.crashed = False
@@ -356,7 +357,10 @@ def handle_fixture(fixturedef, request, force_trio_mode):
     else:
         is_trio_mode = request.node.config.getini("trio_mode")
     coerce_async = (is_trio_test or is_trio_mode)
-    kwargs = {name: request.getfixturevalue(name) for name in fixturedef.argnames}
+    kwargs = {
+        name: request.getfixturevalue(name)
+        for name in fixturedef.argnames
+    }
     if _is_trio_fixture(fixturedef.func, coerce_async, kwargs):
         if request.scope != "function":
             raise RuntimeError("Trio fixtures must be function-scope")
