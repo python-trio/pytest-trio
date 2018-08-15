@@ -48,8 +48,232 @@ def pytest_exception_interact(node, call, report):
 
 
 ################################################################
-# Core support for running tests and constructing fixtures
+# Core support for trio fixtures and trio tests
 ################################################################
+
+# This is more complicated than you might expect.
+
+# The first complication is that all of pytest's machinery for setting up,
+# running a test, and then tearing it down again is synchronous. But we want
+# to have async setup, async tests, and async teardown.
+#
+# Our trick: from pytest's point of view, trio fixtures return an unevaluated
+# placeholder value, a TrioFixture object. This contains all the information
+# needed to do the actual setup/teardown, but doesn't actually perform these
+# operations.
+#
+# Then, pytest runs what it thinks of as "the test", we enter trio, and use
+# our own logic to setup the trio fixtures, run the actual test, and then tear
+# down the trio fixtures. This works pretty well, though it has some
+# limitations:
+# - trio fixtures have to be test-scoped
+# - normally pytest considers a fixture crash to be an ERROR, but when a trio
+#   fixture crashes, it gets classified as a FAIL.
+
+# The other major complication is that we really want to allow trio fixtures
+# to yield inside a nursery. (See gh-55 for more discussion.) And then while
+# the fixture function is suspended, a task inside that nursery might crash.
+#
+# Why is this a problem? Two reasons. First, a technical one: Trio's cancel
+# scope machinery assumes that it can inject a Cancelled exception into any
+# code inside the cancel scope, and that exception will eventually make its
+# way back to the 'with' block.
+#
+# A fixture that yields inside a nursery violates this rule: the cancel scope
+# remains "active" from when the fixture yields until when it's reentered, but
+# if a Cancelled exception is raised during this time, then it *won't* go into
+# the fixture. (And we can't throw it in there either, because that's just not
+# how pytest fixtures work. Whoops.)
+#
+# And second, our setup/test/teardown process needs to account for the
+# possibility that any fixture's background task might crash at any moment,
+# and do something sensible with it.
+#
+# You should think of fixtures as a dependency graph: each fixtures *uses*
+# zero or more other fixtures, and is *used by* zero or more other fixtures. A
+# fixture should be setup before any of the fixtures it's used by are setup,
+# and it should be torn down as soon as all of the fixtures that use it are
+# torn down. And at root of this dependency graph, we have the test itself,
+# which is just like a fixture except that instead of having a separate setup
+# and teardown phase, it runs straight through.
+#
+# To implement this, we isolate each fixture into its own task: this makes
+# sure that crashes in one can't trigger implicit cancellation in another.
+# Then we use trio.Event objects to implement the ordering described above.
+#
+# If a fixture crashes, whether during setup, teardown, or in a background
+# task at any other point, then we mark the whole test run as "crashed". When
+# a run is "crashed", two things happen: (1) if any fixtures or the test
+# itself haven't started yet, then we don't start them. (2) if the test is
+# running, we cancel it. That's all. In particular, if a fixture has a
+# background crash, we don't propagate that to any other fixtures, we still
+# follow the normal teardown sequence, and so on – but since the test is
+# cancelled, the teardown sequence should start immediately.
+
+class TrioTestContext:
+    def __init__(self):
+        self.crashed = False
+        self.test_cancel_scope = None
+        self.error_list = []
+
+    def crash(self, exc):
+        if exc is not None:
+            self.error_list.append(exc)
+        self.crashed = True
+        if self.test_cancel_scope is not None:
+            self.test_cancel_scope.cancel()
+
+
+class TrioFixture:
+    """
+    Represent a fixture that need to be run in a trio context to be resolved.
+
+    The name is actually a misnomer, because we use it to represent the actual
+    test itself as well, since the test is basically just a fixture with no
+    dependents and no teardown.
+    """
+
+    def __init__(self, func, pytest_kwargs, is_test=False):
+        self._func = func
+        self._pytest_kwargs = pytest_kwargs
+        self._is_test = is_test
+        self._teardown_done = trio.Event()
+
+        # These attrs are all accessed from other objects:
+        # Downstream users read this value.
+        self.fixture_value = None
+        # This event notifies downstream users that we're done setting up.
+        # Invariant: if this is set, then either fixture_value is usable *or*
+        # ctx.crashed is True.
+        self.setup_done = trio.Event()
+        # Downstream users *modify* this value, by adding their _teardown_done
+        # events to it, so we know who we need to wait for before tearing
+        # down.
+        self.user_done_events = set()
+
+    def register_and_collect_dependencies(self):
+        # Returns the set of all TrioFixtures that this fixture depends on,
+        # directly or indirectly, and sets up all their user_done_events.
+        deps = set()
+        deps.add(self)
+        for value in self._pytest_kwargs.values():
+            if isinstance(value, TrioFixture):
+                value.user_done_events.add(self._teardown_done)
+                deps.update(value.register_and_collect_dependencies())
+        return deps
+
+    @asynccontextmanager
+    @async_generator
+    async def _fixture_manager(self, ctx):
+        __tracebackhide__ = True
+        try:
+            async with trio.open_nursery() as fixture_nursery:
+                try:
+                    await yield_(fixture_nursery)
+                finally:
+                    fixture_nursery.cancel_scope.cancel()
+        except BaseException as exc:
+            print(repr(exc))
+            ctx.crash(exc)
+        finally:
+            self.setup_done.set()
+            self._teardown_done.set()
+
+    async def run(self, ctx):
+        __tracebackhide__ = True
+
+        # This 'with' block handles the fixture_nursery lifetime, the
+        # teardone_done event, and crashing the context if there's an
+        # unhandled exception.
+        async with self._fixture_manager(ctx) as fixture_nursery:
+            # Resolve our kwargs
+            resolved_kwargs = {}
+            for name, value in self._pytest_kwargs.items():
+                if isinstance(value, TrioFixture):
+                    await value.setup_done.wait()
+                    if value.fixture_value is FIXTURE_NURSERY_PLACEHOLDER:
+                        resolved_kwargs[name] = fixture_nursery
+                    else:
+                        resolved_kwargs[name] = value.fixture_value
+                else:
+                    resolved_kwargs[name] = value
+
+            # If something's already crashed before we're ready to start, then
+            # there's no point in even setting up.
+            if ctx.crashed:
+                return
+
+            # Run actual fixture setup step
+            if self._is_test:
+                # Tests are exactly like fixtures, except that they (1) have
+                # to be regular async functions, (2) if there's a crash, we
+                # should cancel them.
+                assert not self.user_done_events
+                func_value = None
+                with trio.open_cancel_scope() as cancel_scope:
+                    ctx.test_cancel_scope = cancel_scope
+                    assert not ctx.crashed
+                    await self._func(**resolved_kwargs)
+            else:
+                func_value = self._func(**resolved_kwargs)
+                if isinstance(func_value, Coroutine):
+                    self.fixture_value = await func_value
+                elif isasyncgen(func_value):
+                    self.fixture_value = await func_value.asend(None)
+                elif isinstance(func_value, Generator):
+                    self.fixture_value = func_value.send(None)
+                else:
+                    # Regular synchronous function
+                    self.fixture_value = func_value
+
+            # Notify our users that self.fixture_value is ready
+            self.setup_done.set()
+
+            # Wait for users to be finished
+            #
+            # At this point we're in a very strange state: if the fixture
+            # yielded inside a nursery or cancel scope, then we are still
+            # "inside" that scope even though its with block is not on the
+            # stack. In particular this means that if they get cancelled, then
+            # our waiting might get a Cancelled error, that we cannot really
+            # deal with – it should get thrown back into the fixture
+            # generator, but pytest fixture generators don't work that way:
+            #   https://github.com/python-trio/pytest-trio/issues/55
+            # And besides, we can't start tearing down until all our users
+            # have finished.
+            #
+            # So if we get an exception here, we crash the context (which
+            # cancels the test and starts the cleanup process), save any
+            # exception that *isn't* Cancelled (because if its Cancelled then
+            # we can't route it to the right place, and anyway the teardown
+            # code will get it again if it matters), and then use a shield to
+            # keep waiting for the teardown to finish without having to worry
+            # about cancellation.
+            try:
+                for event in self.user_done_events:
+                    await event.wait()
+            except BaseException as exc:
+                assert isinstance(exc, trio.Cancelled)
+                ctx.crash(None)
+                with trio.open_cancel_scope(shield=True):
+                    for event in self.user_done_events:
+                        await event.wait()
+
+            # Do our teardown
+            if isasyncgen(func_value):
+                try:
+                    await func_value.asend(None)
+                except StopAsyncIteration:
+                    pass
+                else:
+                    raise RuntimeError("too many yields in fixture")
+            elif isinstance(func_value, Generator):
+                try:
+                    func_value.send(None)
+                except StopIteration:
+                    pass
+                else:
+                    raise RuntimeError("too many yields in fixture")
 
 
 def _trio_test_runner_factory(item, testfunc=None):
@@ -66,129 +290,32 @@ def _trio_test_runner_factory(item, testfunc=None):
         )
 
     @trio_test
-    async def _bootstrap_fixture_and_run_test(**kwargs):
+    async def _bootstrap_fixtures_and_run_test(**kwargs):
         __tracebackhide__ = True
-        user_exc = None
-        # Open the nursery exposed as fixture
+
+        ctx = TrioTestContext()
+        test = TrioFixture(testfunc, kwargs, is_test=True)
+
         async with trio.open_nursery() as nursery:
-            item._trio_nursery = nursery
-            try:
-                async with _setup_async_fixtures_in(kwargs) as resolved_kwargs:
-                    try:
-                        await testfunc(**resolved_kwargs)
-                    except BaseException as exc:
-                        # Regular pytest fixture don't have access to the test
-                        # exception in there teardown, we mimic this behavior
-                        # here.
-                        user_exc = exc
-            except BaseException as exc:
-                # If we are here, the exception comes from the fixtures setup
-                # or teardown
-                if user_exc:
-                    raise exc from user_exc
-                else:
-                    raise exc
-            finally:
-                # No matter what the nursery fixture should be closed when
-                # test is over
-                nursery.cancel_scope.cancel()
+            for fixture in test.register_and_collect_dependencies():
+                nursery.start_soon(fixture.run, ctx)
 
-        # Finally re-raise or original exception coming from the test if
-        # needed
-        if user_exc:
-            raise user_exc
+        if ctx.error_list:
+            raise trio.MultiError(ctx.error_list)
 
-    _bootstrap_fixture_and_run_test._trio_test_runner_wrapped = True
-    return _bootstrap_fixture_and_run_test
+    _bootstrap_fixtures_and_run_test._trio_test_runner_wrapped = True
+    return _bootstrap_fixtures_and_run_test
 
 
-@asynccontextmanager
-@async_generator
-async def _setup_async_fixtures_in(deps):
-    __tracebackhide__ = True
-
-    need_resolved_deps_stack = [
-        (k, v) for k, v in deps.items() if isinstance(v, TrioFixture)
-    ]
-    if not ORDERED_DICTS:
-        # Make the fixture resolution order determinist
-        need_resolved_deps_stack = sorted(need_resolved_deps_stack)
-
-    if not need_resolved_deps_stack:
-        await yield_(deps)
-        return
-
-    @asynccontextmanager
-    @async_generator
-    async def _recursive_setup(deps_stack):
-        __tracebackhide__ = True
-        name, dep = deps_stack.pop()
-        async with dep.setup() as resolved:
-            if not deps_stack:
-                await yield_([(name, resolved)])
-            else:
-                async with _recursive_setup(deps_stack
-                                            ) as remains_deps_stack_resolved:
-                    await yield_(
-                        remains_deps_stack_resolved + [(name, resolved)]
-                    )
-
-    async with _recursive_setup(need_resolved_deps_stack
-                                ) as resolved_deps_stack:
-        await yield_({**deps, **dict(resolved_deps_stack)})
-
-
-class TrioFixture:
-    """
-    Represent a fixture that need to be run in a trio context to be resolved.
-    """
-
-    def __init__(self, fixturedef, deps={}):
-        self.fixturedef = fixturedef
-        self.deps = deps
-        self.setup_done = False
-        self.result = None
-
-    @asynccontextmanager
-    @async_generator
-    async def setup(self):
-        __tracebackhide__ = True
-        if self.setup_done:
-            await yield_(self.result)
-        else:
-            async with _setup_async_fixtures_in(self.deps) as resolved_deps:
-                retval = self.fixturedef.func(**resolved_deps)
-                if isinstance(retval, Coroutine):
-                    self.result = await retval
-                elif isasyncgen(retval):
-                    self.result = await retval.asend(None)
-                elif isinstance(retval, Generator):
-                    self.result = retval.send(None)
-                else:
-                    # Regular synchronous function
-                    self.result = retval
-
-                try:
-                    await yield_(self.result)
-                finally:
-                    if isasyncgen(retval):
-                        try:
-                            await retval.asend(None)
-                        except StopAsyncIteration:
-                            pass
-                        else:
-                            raise RuntimeError("too many yields in fixture")
-                    elif isinstance(retval, Generator):
-                        try:
-                            retval.send(None)
-                        except StopIteration:
-                            pass
-                        else:
-                            raise RuntimeError("too many yields in fixture")
+################################################################
+# Hooking up the test/fixture machinery to pytest
+################################################################
 
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_call(item):
+    print(item)
+    print(item.get_closest_marker("trio"))
     if item.get_closest_marker("trio") is not None:
         if hasattr(item.obj, 'hypothesis'):
             # If it's a Hypothesis test, we go in a layer.
@@ -214,13 +341,13 @@ def trio_fixture(func):
     return pytest.fixture(func)
 
 
-def _is_trio_fixture(func, coerce_async, deps):
+def _is_trio_fixture(func, coerce_async, kwargs):
     if getattr(func, "_force_trio_fixture", False):
         return True
     if (coerce_async and
         (iscoroutinefunction(func) or isasyncgenfunction(func))):
         return True
-    if any(isinstance(dep, TrioFixture) for dep in deps.values()):
+    if any(isinstance(value, TrioFixture) for value in kwargs.values()):
         return True
     return False
 
@@ -232,18 +359,17 @@ def handle_fixture(fixturedef, request, force_trio_mode):
     else:
         is_trio_mode = request.node.config.getini("trio_mode")
     coerce_async = (is_trio_test or is_trio_mode)
-    deps = {dep: request.getfixturevalue(dep) for dep in fixturedef.argnames}
-    if _is_trio_fixture(fixturedef.func, coerce_async, deps):
+    kwargs = {name: request.getfixturevalue(name) for name in fixturedef.argnames}
+    if _is_trio_fixture(fixturedef.func, coerce_async, kwargs):
         if request.scope != "function":
             raise RuntimeError("Trio fixtures must be function-scope")
         if not is_trio_test:
             raise RuntimeError("Trio fixtures can only be used by Trio tests")
-        fixture = TrioFixture(fixturedef, deps)
+        fixture = TrioFixture(fixturedef.func, kwargs)
         fixturedef.cached_result = (fixture, request.param_index, None)
         return fixture
 
 
-@pytest.hookimpl
 def pytest_fixture_setup(fixturedef, request):
     return handle_fixture(fixturedef, request, force_trio_mode=False)
 
@@ -273,6 +399,15 @@ def pytest_collection_modifyitems(config, items):
 ################################################################
 
 
+class FIXTURE_NURSERY_PLACEHOLDER:
+    pass
+
+
+@trio_fixture
+def fixture_nursery():
+    return FIXTURE_NURSERY_PLACEHOLDER
+
+
 @pytest.fixture
 def mock_clock():
     return MockClock()
@@ -284,16 +419,10 @@ def autojump_clock():
 
 
 @trio_fixture
-def test_nursery(request):
-    return request.node._trio_nursery
-
-
-@trio_fixture
-def nursery(test_nursery):
-    import warnings
+def nursery(request):
     warnings.warn(
         FutureWarning(
-            "The 'nursery' fixture has been renamed to 'test_nursery'"
+            "The 'nursery' fixture has been deprecated; use fixture_nursery instead"
         )
     )
-    return test_nursery
+    return FIXTURE_NURSERY_PLACEHOLDER
