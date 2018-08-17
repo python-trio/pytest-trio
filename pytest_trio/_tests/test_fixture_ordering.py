@@ -1,5 +1,6 @@
 import pytest
 
+
 # Tests that:
 # - leaf_fix gets set up first and torn down last
 # - the two fix_concurrent_{1,2} fixtures run their setup/teardown code
@@ -195,13 +196,15 @@ def test_error_collection(testdir):
 
     result = testdir.runpytest()
     result.assert_outcomes(passed=1, failed=1)
-    result.stdout.fnmatch_lines_random([
-        "*CRASH_NONGEN*",
-        "*CRASH_EARLY_AGEN*",
-        "*CRASH_LATE_AGEN*",
-        "*CRASH_BACKGROUND_EARLY*",
-        "*CRASH_BACKGROUND_LATE*",
-    ])
+    result.stdout.fnmatch_lines_random(
+        [
+            "*CRASH_NONGEN*",
+            "*CRASH_EARLY_AGEN*",
+            "*CRASH_LATE_AGEN*",
+            "*CRASH_BACKGROUND_EARLY*",
+            "*CRASH_BACKGROUND_LATE*",
+        ]
+    )
 
 
 @pytest.mark.parametrize("bgmode", ["nursery fixture", "manual nursery"])
@@ -276,8 +279,7 @@ def test_background_crash_cancellation_propagation(bgmode, testdir):
                 "userfix": float("inf"),
             }
             assert final_time == 1
-        """
-        .replace("CRASHYFIX_HERE", crashyfix)
+        """.replace("CRASHYFIX_HERE", crashyfix)
     )
 
     result = testdir.runpytest()
