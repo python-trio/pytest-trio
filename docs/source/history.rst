@@ -5,6 +5,26 @@ Release history
 
 .. towncrier release notes start
 
+pytest-trio 0.5.0 (????-??-??)
+------------------------------
+
+This is a major release, including a rewrite of large portions of the
+internals. We believe it should be backwards compatible with existing
+projects, but major new features include:
+
+* "trio mode": no more writing ``@pytest.mark.trio`` everywhere!
+* it's now safe to use nurseries inside fixtures (`#55
+  <https://github.com/python-trio/pytest-trio/issues/55>`__)
+* new ``@trio_fixture`` decorator to explicitly mark a fixture as a
+  trio fixture
+* a number of easy-to-make mistakes are now caught and raise
+  informative errors
+* the :data:`nursery` fixture is now 87% more magical
+
+For more details, see the manual. Oh right, speaking of which: we
+finally have a manual! You should read it.
+
+
 pytest-trio 0.4.2 (2018-06-29)
 ------------------------------
 

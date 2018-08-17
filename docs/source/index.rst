@@ -15,15 +15,21 @@ and async I/O in Python. Features include:
 * Async tests without the boilerplate: just write ``async def
   test_whatever(): ...``.
 
-* Useful fixtures included: use ``autojump_clock`` for easy testing of
-  code with timeouts.
+* Useful fixtures included: use :data:`autojump_clock` for easy
+  testing of code with timeouts, or :data:`nursery` to easily set up
+  background tasks.
 
 * Write your own async fixtures: set up an async database connection
   or start a server inside a fixture, and then use it in your tests.
+  If you have multiple async fixtures, pytest-trio will even do
+  setup/teardown concurrently whenever possible.
 
 * Integration with the fabulous `Hypothesis
   <https://hypothesis.works/>`__ library, so your async tests can use
   property-based testing: just use ``@given`` like you're used to.
+
+* Supports testing projects that use Trio exclusively, and also
+  projects that support multiple async libraries.
 
 
 Vital statistics

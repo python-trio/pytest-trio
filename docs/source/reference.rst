@@ -106,6 +106,42 @@ but Trio fixtures **must be test scoped**. Class, module, and session
 scope are not supported.
 
 
+Concurrent setup/teardown
+-------------------------
+
+If your test uses multiple fixtures, then for speed, pytest-trio will
+try to run their setup and teardown code concurrently whenever this is
+possible while respecting the fixture dependencies.
+
+Here's an example, where a test depends on ``fix_b`` and ``fix_c``,
+and these both depend on ``fix_a``::
+
+   @trio_fixture
+   def fix_a():
+       ...
+
+   @trio_fixture
+   def fix_b(fix_a):
+       ...
+
+   @trio_fixture
+   def fix_c(fix_a):
+       ...
+
+   @pytest.mark.trio
+   async def test_example(fix_b, fix_c):
+       ...
+
+When running ``test_example``, pytest-trio will perform the following
+sequence of actions:
+
+1. Set up ``fix_a``
+2. Set up ``fix_b`` and ``fix_c``, concurrently.
+3. Run the test.
+4. Tear down ``fix_b`` and ``fix_c``, concurrently.
+5. Tear down ``fix_a``.
+
+
 Built-in fixtures
 -----------------
 
@@ -140,16 +176,34 @@ available. For example, you can call
        mock_clock.jump(10)
        assert trio.current_time() == 10
 
-.. data:: test_nursery
+.. data:: nursery
 
-   A nursery created and managed by pytest-trio itself. When
-   pytest-trio runs a test, it performs these steps in this order:
+   A nursery created and managed by pytest-trio itself, which
+   surrounds the test/fixture that requested it, and is automatically
+   cancelled after the test/fixture completes. Basically, these are
+   equivalent::
 
-   1. Open the ``test_nursery``
-   2. Set up all Trio fixtures.
-   3. Run the test.
-   4. Tear down all Trio fixtures.
-   5. Cancel the ``test_nursery``.
+      # Boring way
+      async def test_with_background_task():
+          async with trio.open_nursery() as nursery:
+              try:
+                  ...
+              finally:
+                  nursery.cancel_scope.cancel()
+
+      # Fancy way
+      async def test_with_background_task(nursery):
+          ...
+
+   For a fixture, the cancellation always happens after the fixture
+   completes its teardown phase. (Or if it doesn't have a teardown
+   phase, then the cancellation happens after the teardown phase
+   *would* have happened.)
+
+   This fixture is even more magical than most pytest fixtures,
+   because if it gets requested several times within the same test,
+   then it creates multiple nurseries, one for each fixture/test that
+   requested it.
 
    See :ref:`server-fixture-example` for an example of how this can be
    used.

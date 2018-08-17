@@ -172,6 +172,13 @@ regular pytest fixture::
        # Teardown code, executed after the test is done
        await connection.execute("ROLLBACK")
 
+If you need to support Python 3.5, which doesn't allow ``yield``
+inside an ``async def`` function, then you can define async fixtures
+using the `async_generator
+<https://async-generator.readthedocs.io/en/latest/reference.html>`__
+library – just make sure to put the ``@pytest.fixture`` *above* the
+``@async_generator``.
+
 
 .. _server-fixture-example:
 
@@ -191,10 +198,11 @@ arbitrary data, and then send it back out again::
    # Usage: await trio.serve_tcp(echo_server_handler, ...)
 
 Since this is such complicated and sophisticated code, we want to
-write lots of tests to make sure it's working correctly. To test it,
-we want to start a background task running the echo server itself, and
-then we'll connect to it, send it test data, and see how it responds.
-Here's a first attempt::
+write lots of tests to make sure it's working correctly. Our basic
+strategy for each test will be to start the echo server running in a
+background task, and then in the test body we'll connect to our
+server, send it some test data, and see how it responds. Here's a
+first attempt::
 
    # Let's cross our fingers and hope no-one else is using this port...
    PORT = 14923
@@ -208,12 +216,12 @@ Here's a first attempt::
            )
 
            # Connect to the server.
-           client = await trio.open_tcp_stream("127.0.0.1", PORT)
+           echo_client = await trio.open_tcp_stream("127.0.0.1", PORT)
            # Send some test data, and check that it gets echoed back
-           async with client:
-               for test_byte in [b"a", b"c", b"c"]:
-                   await client.send_all(test_byte)
-                   assert await client.receive_some(1) == test_byte
+           async with echo_client:
+               for test_byte in [b"a", b"b", b"c"]:
+                   await echo_client.send_all(test_byte)
+                   assert await echo_client.receive_some(1) == test_byte
 
 This will mostly work, but it has a few problems. The first one is
 that there's a race condition: We spawn a background task to call
@@ -232,7 +240,7 @@ but basically the idea is that both ``nursery.start_soon(...)`` and
 ``start`` waits for the new task to finish getting itself set up. This
 requires some cooperation from the background task: it has to notify
 ``nursery.start`` when it's ready. Fortunately, :func:`trio.serve_tcp`
-already knows how to cooperated with ``nursery.start``, so we can
+already knows how to cooperate with ``nursery.start``, so we can
 write::
 
    # Let's cross our fingers and hope no-one else is using this port...
@@ -248,11 +256,11 @@ write::
            )
 
            # Connect to the server
-           client = await trio.open_tcp_stream("127.0.0.1", PORT)
-           async with client:
-               for test_byte in [b"a", b"c", b"c"]:
-                   await client.send_all(test_byte)
-                   assert await client.receive_some(1) == test_byte
+           echo_client = await trio.open_tcp_stream("127.0.0.1", PORT)
+           async with echo_client:
+               for test_byte in [b"a", b"b", b"c"]:
+                   await echo_client.send_all(test_byte)
+                   assert await echo_client.receive_some(1) == test_byte
 
 That solves our race condition. Next issue: hardcoding the port number
 like this is a bad idea, because port numbers are a machine-wide
@@ -294,11 +302,11 @@ Putting it all together::
            # There might be multiple listeners (example: IPv4 and
            # IPv6), but we don't care which one we connect to, so we
            # just use the first.
-           client = await open_stream_to_socket_listener(listeners[0])
-           async with client:
-               for test_byte in [b"a", b"c", b"c"]:
-                   await client.send_all(test_byte)
-                   assert await client.receive_some(1) == test_byte
+           echo_client = await open_stream_to_socket_listener(listeners[0])
+           async with echo_client:
+               for test_byte in [b"a", b"b", b"c"]:
+                   await echo_client.send_all(test_byte)
+                   assert await echo_client.receive_some(1) == test_byte
 
 Okay, this is getting closer... but if we try to run it, we'll find
 that it just hangs instead of completing. What's going on?
@@ -311,54 +319,54 @@ our test is finished::
    # Don't copy this -- it finally works, but we can still do better!
    async def test_attempt_4():
        async with trio.open_nursery() as nursery:
-           # Start server running in the background
-           # AND wait for it to finish starting up before continuing
-           # AND find out where it's actually listening
-           listeners = await nursery.start(
-               partial(trio.serve_tcp, echo_server_handler, port=0)
-           )
-
-           # Connect to the server.
-           # There might be multiple listeners (example: IPv4 and
-           # IPv6), but we don't care which one we connect to, so we
-           # just use the first.
-           client = await open_stream_to_socket_listener(listeners[0])
-           async with client:
-               for test_byte in [b"a", b"c", b"c"]:
-                   await client.send_all(test_byte)
-                   assert await client.receive_some(1) == test_byte
-
-           # Shut down the server now that we're done testing it
-           nursery.cancel_scope.cancel()
+           try:
+               listeners = await nursery.start(
+                   partial(trio.serve_tcp, echo_server_handler, port=0)
+               )
+               echo_client = await open_stream_to_socket_listener(listeners[0])
+               async with echo_client:
+                   for test_byte in [b"a", b"b", b"c"]:
+                       await echo_client.send_all(test_byte)
+                       assert await echo_client.receive_some(1) == test_byte
+           finally:
+               # Shut down the server now that we're done testing it
+               nursery.cancel_scope.cancel()
 
 Okay, finally this test works correctly. But that's a lot of
-boilerplate. Remember, we need to write lots of tests for this server,
-and we don't want to have to copy-paste all that stuff into every
-test. Let's factor it out into a fixture.
+boilerplate. Can we slim it down? We can!
 
-Probably our first attempt will look something like::
+First, pytest-trio provides a magical fixture that takes care of the
+nursery management boilerplate: just request the :data:`nursery` fixture,
+and you get a nursery object that's already set up, and will be
+automatically cancelled when you're done::
 
-   # DON'T DO THIS, IT DOESN'T WORK
+   # Don't copy this -- it finally works, but we can *still* do better!
+   async def test_attempt_5(nursery):
+       listeners = await nursery.start(
+           partial(trio.serve_tcp, echo_server_handler, port=0)
+       )
+       echo_echo_client = await open_stream_to_socket_listener(listeners[0])
+       async with echo_client:
+           for test_byte in [b"a", b"b", b"c"]:
+               await echo_echo_client.send_all(test_byte)
+               assert await echo_echo_client.receive_some(1) == test_byte
+
+And finally, remember, we need to write lots of tests, and we don't
+want to have to copy-paste the server setup code every time. Let's
+factor it out into a fixture::
+
    @pytest.fixture
-   async def echo_server_connection():
-       async with trio.open_nursery() as nursery:
-           await nursery.start(...)
-           yield ...
-           nursery.cancel_scope.cancel()
+   async def echo_server_connection(nursery):
+       listeners = await nursery.start(
+           partial(trio.serve_tcp, echo_server_handler, port=0)
+       )
+       echo_client = await open_stream_to_socket_listener(listeners[0])
+       async with echo_client:
+           yield echo_client
 
-Unfortunately, this doesn't work. **You cannot make a fixture that
-opens a nursery or cancel scope, and then yields from inside the
-nursery or cancel scope block.** Sorry 🙁. We're `working on it
-<https://github.com/python-trio/pytest-trio/issues/55>`__.
-
-Instead, pytest-trio provides a built-in fixture called
-``test_nursery``. This is a nursery that's created before each test,
-and then automatically cancelled after the test finishes. Which is
-exactly what we need – in fact it's even simpler than our first try,
-because now we don't need to worry about cancelling the nursery
-ourselves.
-
-So here's our complete, final version::
+And now in tests, all we have to do is request the ``echo_client``
+fixture, and we get a background server and a client stream connected
+to it. So here's our complete, final version::
 
    # Final version -- copy this!
    from functools import partial
@@ -376,18 +384,18 @@ So here's our complete, final version::
 
    # The fixture:
    @pytest.fixture
-   async def echo_server_connection(test_nursery):
-       listeners = await test_nursery.start(
+   async def echo_client(nursery):
+       listeners = await nursery.start(
            partial(trio.serve_tcp, echo_server_handler, port=0)
        )
-       client = await open_stream_to_socket_listener(listeners[0])
-       async with client:
-           yield client
+       echo_client = await open_stream_to_socket_listener(listeners[0])
+       async with echo_client:
+           yield echo_client
 
    # A test using the fixture:
-   async def test_final(echo_server_connection):
-       for test_byte in [b"a", b"c", b"c"]:
-           await echo_server_connection.send_all(test_byte)
-           assert await echo_server_connection.receive_some(1) == test_byte
+   async def test_final(echo_client):
+       for test_byte in [b"a", b"b", b"c"]:
+           await echo_client.send_all(test_byte)
+           assert await echo_client.receive_some(1) == test_byte
 
 No race conditions, no hangs, simple, clean, and reusable.
