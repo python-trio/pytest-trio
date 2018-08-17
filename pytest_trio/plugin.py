@@ -134,7 +134,8 @@ class TrioFixture:
     dependents and no teardown.
     """
 
-    def __init__(self, func, pytest_kwargs, is_test=False):
+    def __init__(self, name, func, pytest_kwargs, is_test=False):
+        self.name = name
         self._func = func
         self._pytest_kwargs = pytest_kwargs
         self._is_test = is_test
@@ -294,11 +295,16 @@ def _trio_test_runner_factory(item, testfunc=None):
         __tracebackhide__ = True
 
         ctx = TrioTestContext()
-        test = TrioFixture(testfunc, kwargs, is_test=True)
+        test = TrioFixture(
+            "<test {!r}>".format(testfunc.__name__),
+            testfunc,
+            kwargs,
+            is_test=True
+        )
 
         async with trio.open_nursery() as nursery:
             for fixture in test.register_and_collect_dependencies():
-                nursery.start_soon(fixture.run, ctx)
+                nursery.start_soon(fixture.run, ctx, name=fixture.name)
 
         if ctx.error_list:
             raise trio.MultiError(ctx.error_list)
@@ -366,7 +372,11 @@ def handle_fixture(fixturedef, request, force_trio_mode):
             raise RuntimeError("Trio fixtures must be function-scope")
         if not is_trio_test:
             raise RuntimeError("Trio fixtures can only be used by Trio tests")
-        fixture = TrioFixture(fixturedef.func, kwargs)
+        fixture = TrioFixture(
+            "<fixture {!r}>".format(fixturedef.argname),
+            fixturedef.func,
+            kwargs,
+        )
         fixturedef.cached_result = (fixture, request.param_index, None)
         return fixture
 
