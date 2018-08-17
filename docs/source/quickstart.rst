@@ -197,12 +197,12 @@ arbitrary data, and then send it back out again::
 
    # Usage: await trio.serve_tcp(echo_server_handler, ...)
 
-Since this is such complicated and sophisticated code, we want to
-write lots of tests to make sure it's working correctly. Our basic
-strategy for each test will be to start the echo server running in a
-background task, and then in the test body we'll connect to our
-server, send it some test data, and see how it responds. Here's a
-first attempt::
+Now we need to test it, to make sure it's working correctly. In fact,
+since this is such complicated and sophisticated code, we're going to
+write lots of tests for it. And they'll all follow the same basic
+pattern: we'll start the echo server running in a background task,
+then connect to it, send it some test data, and see how it responds.
+Here's a first attempt::
 
    # Let's cross our fingers and hope no-one else is using this port...
    PORT = 14923
@@ -223,25 +223,15 @@ first attempt::
                    await echo_client.send_all(test_byte)
                    assert await echo_client.receive_some(1) == test_byte
 
-This will mostly work, but it has a few problems. The first one is
-that there's a race condition: We spawn a background task to call
-``serve_tcp``, and then immediately try to connect to that server.
-Sometimes this will work fine. But it takes a little while for the
-server to start up and be ready to accept connections – so other
-times, randomly, our connection attempt will happen too quickly, and
-error out. After all – ``nursery.start_soon`` only promises that the
-task will be started *soon*, not that it's actually happened.
+This will mostly work, but it has a few problems. The most obvious one
+is that when we run it, even if everything works perfectly, it will
+hang at the end of the test – we never shut down the server, so the
+nursery block will wait forever for it to exit.
 
-To solve this race condition, we should switch to using ``await
-nursery.start(...)``. You can `read its docs for full details
-<https://trio.readthedocs.io/en/latest/reference-core.html#trio.The%20nursery%20interface.start>`__,
-but basically the idea is that both ``nursery.start_soon(...)`` and
-``await nursery.start(...)`` create background tasks, but only
-``start`` waits for the new task to finish getting itself set up. This
-requires some cooperation from the background task: it has to notify
-``nursery.start`` when it's ready. Fortunately, :func:`trio.serve_tcp`
-already knows how to cooperate with ``nursery.start``, so we can
-write::
+To avoid this, we should cancel the nursery at the end of the test:
+
+.. code-block:: python3
+   :emphasize-lines: 7,20,21
 
    # Let's cross our fingers and hope no-one else is using this port...
    PORT = 14923
@@ -249,18 +239,89 @@ write::
    # Don't copy this -- we can do better
    async def test_attempt_2():
        async with trio.open_nursery() as nursery:
-           # Start server running in the background
-           # AND wait for it to finish starting up before continuing
-           await nursery.start(
-               partial(trio.serve_tcp, echo_server_handler, port=PORT)
-           )
+           try:
+               # Start server running in the background
+               nursery.start_soon(
+                   partial(trio.serve_tcp, echo_server_handler, port=PORT)
+               )
 
-           # Connect to the server
-           echo_client = await trio.open_tcp_stream("127.0.0.1", PORT)
-           async with echo_client:
-               for test_byte in [b"a", b"b", b"c"]:
-                   await echo_client.send_all(test_byte)
-                   assert await echo_client.receive_some(1) == test_byte
+               # Connect to the server.
+               echo_client = await trio.open_tcp_stream("127.0.0.1", PORT)
+               # Send some test data, and check that it gets echoed back
+               async with echo_client:
+                   for test_byte in [b"a", b"b", b"c"]:
+                       await echo_client.send_all(test_byte)
+                       assert await echo_client.receive_some(1) == test_byte
+           finally:
+               nursery.cancel_scope.cancel()
+
+In fact, this pattern is *so* common, that pytest-trio provides a
+handy :data:`nursery` fixture to let you skip the boilerplate. Just
+add ``nursery`` to your test function arguments, and pytest-trio will
+open a nursery, pass it in to your function, and then cancel it for
+you afterwards:
+
+.. code-block:: python3
+   :emphasize-lines: 5
+
+   # Let's cross our fingers and hope no-one else is using this port...
+   PORT = 14923
+
+   # Don't copy this -- we can do better
+   async def test_attempt_3(nursery):
+       # Start server running in the background
+       nursery.start_soon(
+           partial(trio.serve_tcp, echo_server_handler, port=PORT)
+       )
+
+       # Connect to the server.
+       echo_client = await trio.open_tcp_stream("127.0.0.1", PORT)
+       # Send some test data, and check that it gets echoed back
+       async with echo_client:
+           for test_byte in [b"a", b"b", b"c"]:
+               await echo_client.send_all(test_byte)
+               assert await echo_client.receive_some(1) == test_byte
+
+Next problem: we have a race condition. We spawn a background task to
+call ``serve_tcp``, and then immediately try to connect to that
+server. Sometimes this will work fine. But it takes a little while for
+the server to start up and be ready to accept connections – so other
+times, randomly, our connection attempt will happen too quickly, and
+error out. After all – ``nursery.start_soon`` only promises that the
+task will be started *soon*, not that it's actually happened. So this
+test will be flaky, and flaky tests are the worst.
+
+Fortunately, Trio makes this easy to solve, by switching to using
+``await nursery.start(...)``. You can `read its docs for full details
+<https://trio.readthedocs.io/en/latest/reference-core.html#trio.The%20nursery%20interface.start>`__,
+but basically the idea is that both ``nursery.start_soon(...)`` and
+``await nursery.start(...)`` create background tasks, but only
+``start`` waits for the new task to finish getting itself set up. This
+requires some cooperation from the background task: it has to notify
+``nursery.start`` when it's ready. Fortunately, :func:`trio.serve_tcp`
+already knows how to cooperate with ``nursery.start``, so we can
+write:
+
+.. code-block:: python3
+   :emphasize-lines: 6-10
+
+   # Let's cross our fingers and hope no-one else is using this port...
+   PORT = 14923
+
+   # Don't copy this -- we can do better
+   async def test_attempt_4(nursery):
+       # Start server running in the background
+       # AND wait for it to finish starting up before continuing
+       await nursery.start(
+           partial(trio.serve_tcp, echo_server_handler, port=PORT)
+       )
+
+       # Connect to the server
+       echo_client = await trio.open_tcp_stream("127.0.0.1", PORT)
+       async with echo_client:
+           for test_byte in [b"a", b"b", b"c"]:
+               await echo_client.send_all(test_byte)
+               assert await echo_client.receive_some(1) == test_byte
 
 That solves our race condition. Next issue: hardcoding the port number
 like this is a bad idea, because port numbers are a machine-wide
@@ -284,79 +345,39 @@ function called :func:`trio.testing.open_stream_to_socket_listener`
 that can take a :class:`~trio.SocketListener` and make a connection to
 it.
 
-Putting it all together::
+Putting it all together:
+
+.. code-block:: python3
+   :emphasize-lines: 1,8,13-16
 
    from trio.testing import open_stream_to_socket_listener
 
-   # Don't copy this -- we can do better
-   async def test_attempt_3():
-       async with trio.open_nursery() as nursery:
-           # Start server running in the background
-           # AND wait for it to finish starting up before continuing
-           # AND find out where it's actually listening
-           listeners = await nursery.start(
-               partial(trio.serve_tcp, echo_server_handler, port=0)
-           )
-
-           # Connect to the server.
-           # There might be multiple listeners (example: IPv4 and
-           # IPv6), but we don't care which one we connect to, so we
-           # just use the first.
-           echo_client = await open_stream_to_socket_listener(listeners[0])
-           async with echo_client:
-               for test_byte in [b"a", b"b", b"c"]:
-                   await echo_client.send_all(test_byte)
-                   assert await echo_client.receive_some(1) == test_byte
-
-Okay, this is getting closer... but if we try to run it, we'll find
-that it just hangs instead of completing. What's going on?
-
-The problem is that we need to shut down the server – otherwise it
-will keep waiting for new connections forever, and the test will never
-finish. We can fix this by cancelling everything in the nursery once
-our test is finished::
-
    # Don't copy this -- it finally works, but we can still do better!
-   async def test_attempt_4():
-       async with trio.open_nursery() as nursery:
-           try:
-               listeners = await nursery.start(
-                   partial(trio.serve_tcp, echo_server_handler, port=0)
-               )
-               echo_client = await open_stream_to_socket_listener(listeners[0])
-               async with echo_client:
-                   for test_byte in [b"a", b"b", b"c"]:
-                       await echo_client.send_all(test_byte)
-                       assert await echo_client.receive_some(1) == test_byte
-           finally:
-               # Shut down the server now that we're done testing it
-               nursery.cancel_scope.cancel()
-
-Okay, finally this test works correctly. But that's a lot of
-boilerplate. Can we slim it down? We can!
-
-First, pytest-trio provides a magical fixture that takes care of the
-nursery management boilerplate: just request the :data:`nursery` fixture,
-and you get a nursery object that's already set up, and will be
-automatically cancelled when you're done::
-
-   # Don't copy this -- it finally works, but we can *still* do better!
    async def test_attempt_5(nursery):
+       # Start server running in the background
+       # AND wait for it to finish starting up before continuing
+       # AND find out where it's actually listening
        listeners = await nursery.start(
            partial(trio.serve_tcp, echo_server_handler, port=0)
        )
-       echo_echo_client = await open_stream_to_socket_listener(listeners[0])
+
+       # Connect to the server.
+       # There might be multiple listeners (example: IPv4 and
+       # IPv6), but we don't care which one we connect to, so we
+       # just use the first.
+       echo_client = await open_stream_to_socket_listener(listeners[0])
        async with echo_client:
            for test_byte in [b"a", b"b", b"c"]:
-               await echo_echo_client.send_all(test_byte)
-               assert await echo_echo_client.receive_some(1) == test_byte
+               await echo_client.send_all(test_byte)
+               assert await echo_client.receive_some(1) == test_byte
 
-And finally, remember, we need to write lots of tests, and we don't
-want to have to copy-paste the server setup code every time. Let's
-factor it out into a fixture::
+Now, this works – but there's still a lot of boilerplate. Remember, we
+need to write lots of tests for this server, and we don't want to have
+to copy-paste all that stuff into every test. Let's factor out the
+setup into a fixture::
 
    @pytest.fixture
-   async def echo_server_connection(nursery):
+   async def echo_client(nursery):
        listeners = await nursery.start(
            partial(trio.serve_tcp, echo_server_handler, port=0)
        )
@@ -398,4 +419,4 @@ to it. So here's our complete, final version::
            await echo_client.send_all(test_byte)
            assert await echo_client.receive_some(1) == test_byte
 
-No race conditions, no hangs, simple, clean, and reusable.
+No hangs, no race conditions, simple, clean, and reusable.
