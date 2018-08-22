@@ -152,15 +152,19 @@ Handling of ContextVars
 The :mod:`contextvars` module lets you create
 :class:`~contextvars.ContextVar` objects to represent task-local
 variables. Normally, in Trio, each task gets its own
-:class:`~contextvars.Context`, so that :class:`~ContextVar` mutations
-are only visible to the task that performs them. But pytest-trio
-overrides this, and for each test it uses a single
-:class:`~contextvars.Context` which is shared by all fixtures and the
-test function itself.
+:class:`~contextvars.Context`, so that changes to
+:class:`~contextvars.ContextVar` objects are only visible inside the
+task that performs them. But pytest-trio overrides this, and for each
+test it uses a single :class:`~contextvars.Context` which is shared by
+all fixtures and the test function itself.
 
 The benefit of this is that you can set
 :class:`~contextvars.ContextVar` values inside a fixture, and your
 settings will be visible in dependent fixtures and the test itself.
+For example, `trio-asyncio <https://trio-asyncio.readthedocs.io/>`__
+uses a :class:`~contextvars.ContextVar` to hold the current asyncio
+loop object, so this lets you open a loop inside a fixture and then
+use it inside other fixtures or the test itself.
 
 The downside is that if two fixtures are run concurrently (see
 previous section), and both mutate the same
