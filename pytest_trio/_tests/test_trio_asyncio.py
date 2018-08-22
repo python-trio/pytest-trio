@@ -1,7 +1,7 @@
 import pytest
 import trio_asyncio
 import asyncio
-
+from async_generator import async_generator, yield_
 
 @trio_asyncio.trio2aio
 async def work_in_asyncio():
@@ -9,22 +9,25 @@ async def work_in_asyncio():
 
 
 @pytest.fixture()
+@async_generator
 async def asyncio_loop():
     async with trio_asyncio.open_loop() as loop:
-        yield loop
+        await yield_(loop)
 
 
 @pytest.fixture()
+@async_generator
 async def asyncio_fixture_with_fixtured_loop(asyncio_loop):
     await work_in_asyncio()
-    yield 42
+    await yield_()
 
 
 @pytest.fixture()
+@async_generator
 async def asyncio_fixture_own_loop():
     async with trio_asyncio.open_loop():
         await work_in_asyncio()
-        yield 42
+        await yield_()
 
 
 @pytest.mark.trio
