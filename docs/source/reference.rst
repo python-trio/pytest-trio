@@ -141,6 +141,32 @@ sequence of actions:
 4. Tear down ``fix_b`` and ``fix_c``, concurrently.
 5. Tear down ``fix_a``.
 
+We're `seeking feedback
+<https://github.com/python-trio/pytest-trio/issues/57>`__ on whether
+this feature's benefits outweigh its negatives.
+
+
+Handling of ContextVars
+-----------------------
+
+The :mod:`contextvars` module provides a way to create task-local
+variables called :class:`~contextvars.ContextVars`. Normally, in Trio,
+each task gets its own :class:`~contextvars.Context`. But pytest-trio
+overrides this, and for each test it uses a single
+:class:`~contextvars.Context` which is shared by all fixtures and the
+test function itself.
+
+The benefit of this is that you can set
+:class:`~contextvars.ContextVars` inside a fixture, and your settings
+will be visible in dependent fixtures and the test itself.
+
+The downside is that if two fixtures are run concurrently (see
+previous section), and both mutate the same
+:class:`~contextvars.ContextVars`, then there will be a race condition
+and the the final value will be unpredictable. If you make one fixture
+depend on the other, then this will force an ordering and make the
+final value predictable again.
+
 
 Built-in fixtures
 -----------------
