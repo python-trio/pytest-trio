@@ -3,6 +3,7 @@ import sys
 from traceback import format_exception
 from collections.abc import Coroutine, Generator
 from inspect import iscoroutinefunction, isgeneratorfunction
+import contextvars
 import pytest
 import trio
 from trio.testing import MockClock, trio_test
@@ -110,6 +111,8 @@ def pytest_exception_interact(node, call, report):
 # follow the normal teardown sequence, and so on – but since the test is
 # cancelled, the teardown sequence should start immediately.
 
+canary = contextvars.ContextVar("pytest-trio canary")
+
 
 class TrioTestContext:
     def __init__(self):
@@ -146,7 +149,7 @@ class TrioFixture:
         self.fixture_value = None
         # This event notifies downstream users that we're done setting up.
         # Invariant: if this is set, then either fixture_value is usable *or*
-        # ctx.crashed is True.
+        # test_ctx.crashed is True.
         self.setup_done = trio.Event()
         # Downstream users *modify* this value, by adding their _teardown_done
         # events to it, so we know who we need to wait for before tearing
@@ -166,7 +169,7 @@ class TrioFixture:
 
     @asynccontextmanager
     @async_generator
-    async def _fixture_manager(self, ctx):
+    async def _fixture_manager(self, test_ctx):
         __tracebackhide__ = True
         try:
             async with trio.open_nursery() as nursery_fixture:
@@ -175,18 +178,29 @@ class TrioFixture:
                 finally:
                     nursery_fixture.cancel_scope.cancel()
         except BaseException as exc:
-            ctx.crash(exc)
+            test_ctx.crash(exc)
         finally:
             self.setup_done.set()
             self._teardown_done.set()
 
-    async def run(self, ctx):
+    async def run(self, test_ctx, contextvars_ctx):
         __tracebackhide__ = True
+
+        # This is a gross hack. I guess Trio should provide a context=
+        # argument to start_soon/start?
+        task = trio.hazmat.current_task()
+        assert canary not in task.context
+        task.context = contextvars_ctx
+        # Force a yield so we pick up the new context
+        await trio.sleep(0)
+        # Check that it worked, since technically trio doesn't *guarantee*
+        # that sleep(0) will actually yield.
+        assert canary.get() == "in correct context"
 
         # This 'with' block handles the nursery fixture lifetime, the
         # teardone_done event, and crashing the context if there's an
         # unhandled exception.
-        async with self._fixture_manager(ctx) as nursery_fixture:
+        async with self._fixture_manager(test_ctx) as nursery_fixture:
             # Resolve our kwargs
             resolved_kwargs = {}
             for name, value in self._pytest_kwargs.items():
@@ -201,7 +215,7 @@ class TrioFixture:
 
             # If something's already crashed before we're ready to start, then
             # there's no point in even setting up.
-            if ctx.crashed:
+            if test_ctx.crashed:
                 return
 
             # Run actual fixture setup step
@@ -212,8 +226,8 @@ class TrioFixture:
                 assert not self.user_done_events
                 func_value = None
                 with trio.open_cancel_scope() as cancel_scope:
-                    ctx.test_cancel_scope = cancel_scope
-                    assert not ctx.crashed
+                    test_ctx.test_cancel_scope = cancel_scope
+                    assert not test_ctx.crashed
                     await self._func(**resolved_kwargs)
             else:
                 func_value = self._func(**resolved_kwargs)
@@ -255,7 +269,7 @@ class TrioFixture:
                     await event.wait()
             except BaseException as exc:
                 assert isinstance(exc, trio.Cancelled)
-                ctx.crash(None)
+                test_ctx.crash(None)
                 with trio.open_cancel_scope(shield=True):
                     for event in self.user_done_events:
                         await event.wait()
@@ -294,7 +308,7 @@ def _trio_test_runner_factory(item, testfunc=None):
     async def _bootstrap_fixtures_and_run_test(**kwargs):
         __tracebackhide__ = True
 
-        ctx = TrioTestContext()
+        test_ctx = TrioTestContext()
         test = TrioFixture(
             "<test {!r}>".format(testfunc.__name__),
             testfunc,
@@ -302,12 +316,17 @@ def _trio_test_runner_factory(item, testfunc=None):
             is_test=True
         )
 
+        contextvars_ctx = contextvars.copy_context()
+        contextvars_ctx.run(canary.set, "in correct context")
+
         async with trio.open_nursery() as nursery:
             for fixture in test.register_and_collect_dependencies():
-                nursery.start_soon(fixture.run, ctx, name=fixture.name)
+                nursery.start_soon(
+                    fixture.run, test_ctx, contextvars_ctx, name=fixture.name
+                )
 
-        if ctx.error_list:
-            raise trio.MultiError(ctx.error_list)
+        if test_ctx.error_list:
+            raise trio.MultiError(test_ctx.error_list)
 
     _bootstrap_fixtures_and_run_test._trio_test_runner_wrapped = True
     return _bootstrap_fixtures_and_run_test
