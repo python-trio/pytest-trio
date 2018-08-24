@@ -317,39 +317,43 @@ def test_async_yield_fixture_crashed_teardown_allow_other_teardowns(
         import trio
         from async_generator import async_generator, yield_
 
-        events = []
+        setup_events = set()
+        teardown_events = set()
 
         @pytest.fixture
         @async_generator
         async def good_fixture():
             async with trio.open_nursery() as nursery:
-                events.append('good_fixture setup')
+                setup_events.add('good_fixture setup')
                 await yield_(None)
-                events.append('good_fixture teardown')
+                teardown_events.add('good_fixture teardown')
 
         @pytest.fixture
         @async_generator
         async def bad_fixture():
             async with trio.open_nursery() as nursery:
-                events.append('bad_fixture setup')
+                setup_events.add('bad_fixture setup')
                 await yield_(None)
-                events.append('bad_fixture teardown')
+                teardown_events.add('bad_fixture teardown')
                 raise RuntimeError('Crash during fixture teardown')
 
         def test_before():
-            assert not events
+            assert not setup_events
+            assert not teardown_events
 
         @pytest.mark.trio
         async def test_actual_test(bad_fixture, good_fixture):
             pass
 
         def test_after():
-            assert events == [
+            assert setup_events == {
                 'good_fixture setup',
                 'bad_fixture setup',
+            }
+            assert teardown_events == {
                 'bad_fixture teardown',
                 'good_fixture teardown',
-            ]
+            }
     """
         )
     )

@@ -18,6 +18,8 @@ setup(
     install_requires=[
         "trio",
         "async_generator >= 1.9",
+        # For node.get_closest_marker
+        "pytest >= 3.6"
     ],
     keywords=[
         'async',

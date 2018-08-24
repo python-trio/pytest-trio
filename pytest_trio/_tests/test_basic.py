@@ -21,7 +21,7 @@ def test_async_test_is_executed(testdir):
     """
     )
 
-    result = testdir.runpytest()
+    result = testdir.runpytest("-s")
 
     result.assert_outcomes(passed=2)
 
