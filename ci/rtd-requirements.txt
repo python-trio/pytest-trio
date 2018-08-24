@@ -2,3 +2,6 @@
 sphinx >= 1.6.1
 sphinx_rtd_theme
 sphinxcontrib-trio
+# Workaround for this weird issue:
+# https://travis-ci.org/python-trio/pytest-trio/jobs/407495415
+attrs >= 17.4.0
