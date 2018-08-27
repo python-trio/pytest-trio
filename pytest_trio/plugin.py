@@ -92,7 +92,7 @@ def pytest_exception_interact(node, call, report):
 #
 # You should think of fixtures as a dependency graph: each fixtures *uses*
 # zero or more other fixtures, and is *used by* zero or more other fixtures. A
-# fixture should be setup before any of the fixtures it's used by are setup,
+# fixture should be setup before any of the fixtures it is used by are setup,
 # and it should be torn down as soon as all of the fixtures that use it are
 # torn down. And at root of this dependency graph, we have the test itself,
 # which is just like a fixture except that instead of having a separate setup
