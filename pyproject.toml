@@ -2,5 +2,6 @@
 package = "pytest_trio"
 filename = "docs/source/history.rst"
 directory = "newsfragments"
+title_format = "pytest-trio {version} ({project_date})"
 underlines = ["-", "~", "^"]
 issue_format = "`#{issue} <https://github.com/python-trio/pytest-trio/issues/{issue}>`__"

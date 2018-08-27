@@ -1,17 +1,49 @@
 pytest-trio
 ===========
 
+.. image:: https://img.shields.io/badge/chat-join%20now-blue.svg
+   :target: https://gitter.im/python-trio/general
+   :alt: Join chatroom
+
+.. image:: https://img.shields.io/badge/docs-read%20now-blue.svg
+   :target: https://pytest-trio.readthedocs.io/en/latest/?badge=latest
+   :alt: Documentation Status
+
+.. image:: https://img.shields.io/pypi/v/pytest-trio.svg
+   :target: https://pypi.org/project/pytest-trio
+   :alt: Latest PyPi version
+
 .. image:: https://travis-ci.org/python-trio/pytest-trio.svg?branch=master
-    :target: https://travis-ci.org/python-trio/pytest-trio
+   :target: https://travis-ci.org/python-trio/pytest-trio
+   :alt: Automated test status (Linux and MacOS)
 
 .. image:: https://ci.appveyor.com/api/projects/status/aq0pklx7hanx031x?svg=true
-    :target: https://ci.appveyor.com/project/touilleMan/pytest-trio
+   :target: https://ci.appveyor.com/project/touilleMan/pytest-trio
+   :alt: Automated test status (Windows)
 
 .. image:: https://codecov.io/gh/python-trio/pytest-trio/branch/master/graph/badge.svg
-  :target: https://codecov.io/gh/python-trio/pytest-trio
+   :target: https://codecov.io/gh/python-trio/pytest-trio
+   :alt: Test coverage
 
-Welcome to `pytest-trio <https://github.com/python-trio/pytest-trio>`__!
+This is a pytest plugin to help you test projects that use `Trio
+<https://trio.readthedocs.io/>`__, a friendly library for concurrency
+and async I/O in Python. For an overview of features, see our `manual
+<https://pytest-trio.readthedocs.io>`__, or jump straight to the
+`quickstart guide
+<https://pytest-trio.readthedocs.io/en/latest/quickstart.html>`__.
 
-Pytest plugin for trio
 
-License: Your choice of MIT or Apache License 2.0
+Vital statistics
+----------------
+
+**Documentation:** https://pytest-trio.readthedocs.io
+
+**Bug tracker and source code:**
+https://github.com/python-trio/pytest-trio
+
+**License:** MIT or Apache 2, your choice.
+
+**Code of conduct:** Contributors are requested to follow our `code of
+conduct
+<https://github.com/python-trio/pytest-trio/blob/master/CODE_OF_CONDUCT.md>`__
+in all project spaces.
