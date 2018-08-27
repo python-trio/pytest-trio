@@ -19,7 +19,7 @@ When Trio mode is enabled, two extra things happen:
   have to do it yourself.
 * Async fixtures using ``@pytest.fixture`` automatically get converted
   to Trio fixtures. (The main effect of this is that it helps you
-  catch mistakes where a you use an async fixture with a non-async
+  catch mistakes like using an async fixture with a non-async
   test.)
 
 There are two ways to enable Trio mode.
