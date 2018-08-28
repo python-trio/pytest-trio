@@ -3,12 +3,10 @@ import sys
 import asyncio
 from async_generator import async_generator, yield_
 
-if sys.version_info < (3, 6):
-    pytestmark = pytest.mark.skip(
-        reason="trio-asyncio doesn't seem to work on 3.5"
-    )
-else:
+try:
     import trio_asyncio
+except ImportError:
+    pytestmark = pytest.mark.skip(reason="trio-asyncio not available")
 
 
 async def use_run_asyncio():
