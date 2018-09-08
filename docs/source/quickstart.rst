@@ -137,7 +137,7 @@ But now we're using virtual time, so the call to ``await
 trio.sleep(1)`` takes *exactly* 1 virtual second, and the ``==`` test
 will pass every time. Before, we had to wait around for the test to
 complete; now, it completes essentially instantaneously. (Try it!)
-And, while here our example is super simple, it's integration with
+And, while here our example is super simple, its integration with
 Trio's core scheduling logic allows this to work for arbitrarily
 complex programs (as long as they aren't interacting with the outside
 world).
@@ -288,7 +288,7 @@ server. Sometimes this will work fine. But it takes a little while for
 the server to start up and be ready to accept connections – so other
 times, randomly, our connection attempt will happen too quickly, and
 error out. After all – ``nursery.start_soon`` only promises that the
-task will be started *soon*, not that it's actually happened. So this
+task will be started *soon*, not that it has actually happened. So this
 test will be flaky, and flaky tests are the worst.
 
 Fortunately, Trio makes this easy to solve, by switching to using
@@ -338,7 +338,7 @@ Well, there's no way to predict the port ahead of time. But after
 :func:`~trio.serve_tcp` has opened a port, it can check and see what
 it got. So we need some way to pass this data back out of
 :func:`~trio.serve_tcp`. Fortunately, ``nursery.start`` handles this
-too: it lets the task pass out a piece of data after it's started. And
+too: it lets the task pass out a piece of data after it has started. And
 it just so happens that what :func:`~trio.serve_tcp` passes out is a
 list of :class:`~trio.SocketListener` objects. And there's a handy
 function called :func:`trio.testing.open_stream_to_socket_listener`
