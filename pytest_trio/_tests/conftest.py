@@ -3,7 +3,8 @@
 import pytest
 import warnings
 warnings.filterwarnings(
-    "default", category=pytest.RemovedInPytest4Warning,
+    "default",
+    category=pytest.RemovedInPytest4Warning,
     message=".*non-top-level conftest.*",
 )
 
