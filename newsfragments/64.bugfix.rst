@@ -1,0 +1,2 @@
+The pytest 3.8.1 release broke pytest-trio's handling of trio tests
+defined as class methods. We fixed it again.

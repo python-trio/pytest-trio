@@ -9,8 +9,8 @@ except ImportError:
     pytestmark = pytest.mark.skip(reason="trio-asyncio not available")
 
 
-async def use_run_asyncio():
-    await trio_asyncio.run_asyncio(asyncio.sleep, 0)
+async def use_asyncio():
+    await trio_asyncio.aio_as_trio(asyncio.sleep)(0)
 
 
 @pytest.fixture()
@@ -23,7 +23,7 @@ async def asyncio_loop():
 @pytest.fixture()
 @async_generator
 async def asyncio_fixture_with_fixtured_loop(asyncio_loop):
-    await use_run_asyncio()
+    await use_asyncio()
     await yield_()
 
 
@@ -31,21 +31,21 @@ async def asyncio_fixture_with_fixtured_loop(asyncio_loop):
 @async_generator
 async def asyncio_fixture_own_loop():
     async with trio_asyncio.open_loop():
-        await use_run_asyncio()
+        await use_asyncio()
         await yield_()
 
 
 @pytest.mark.trio
 async def test_no_fixture():
     async with trio_asyncio.open_loop():
-        await use_run_asyncio()
+        await use_asyncio()
 
 
 @pytest.mark.trio
 async def test_half_fixtured_asyncpg_conn(asyncio_fixture_own_loop):
-    await use_run_asyncio()
+    await use_asyncio()
 
 
 @pytest.mark.trio
 async def test_fixtured_asyncpg_conn(asyncio_fixture_with_fixtured_loop):
-    await use_run_asyncio()
+    await use_asyncio()
