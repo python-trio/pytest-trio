@@ -292,7 +292,7 @@ class TrioFixture:
 
 
 def _trio_test_runner_factory(item, testfunc=None):
-    testfunc = testfunc or item.function
+    testfunc = testfunc or item.obj
 
     if getattr(testfunc, '_trio_test_runner_wrapped', False):
         # We have already wrapped this, perhaps because we combined Hypothesis
