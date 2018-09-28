@@ -5,6 +5,16 @@ Release history
 
 .. towncrier release notes start
 
+pytest-trio 0.5.1 (2018-09-28)
+------------------------------
+
+Bugfixes
+~~~~~~~~
+
+- The pytest 3.8.1 release broke pytest-trio's handling of trio tests
+  defined as class methods. We fixed it again. (`#64 <https://github.com/python-trio/pytest-trio/issues/64>`__)
+
+
 pytest-trio 0.5.0 (2018-08-26)
 ------------------------------
 
