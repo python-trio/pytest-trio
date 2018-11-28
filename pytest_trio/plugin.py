@@ -411,10 +411,14 @@ def pytest_fixture_setup(fixturedef, request):
 
 def automark(items):
     for item in items:
-        if hasattr(item.obj, "hypothesis"):
-            test_func = item.obj.hypothesis.inner_test
+        try:
+            obj = item.obj
+        except AttributeError:
+            continue
+        if hasattr(obj, "hypothesis"):
+            test_func = obj.hypothesis.inner_test
         else:
-            test_func = item.obj
+            test_func = obj
         if iscoroutinefunction(test_func):
             item.add_marker(pytest.mark.trio)
 
