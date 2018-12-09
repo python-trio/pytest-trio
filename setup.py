@@ -39,6 +39,7 @@ setup(
         "Programming Language :: Python :: Implementation :: PyPy",
         "Topic :: System :: Networking",
         "Topic :: Software Development :: Testing",
+        "Framework :: Hypothesis",
         "Framework :: Pytest",
         "Framework :: Trio",
     ],
