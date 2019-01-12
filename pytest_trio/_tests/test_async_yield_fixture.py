@@ -364,3 +364,57 @@ def test_async_yield_fixture_crashed_teardown_allow_other_teardowns(
     result.stdout.re_match_lines(
         [r'E\W+RuntimeError: Crash during fixture teardown']
     )
+
+
+def test_async_yield_fixture_crashed_then_parent_cancel(testdir, async_yield_implementation):
+    testdir.makepyfile(
+        async_yield_implementation(
+            """
+        import pytest
+        import trio
+        from async_generator import asynccontextmanager, async_generator, yield_
+
+        async def die_soon(*, task_status=trio.TASK_STATUS_IGNORED):
+            task_status.started()
+            raise RuntimeError('Ooops !')
+
+        @asynccontextmanager
+        @async_generator
+        async def async_finalizer():
+            try:
+                await yield_()
+            finally:
+                await trio.sleep(0)
+
+        @asynccontextmanager
+        @async_generator
+        async def actx():
+            async with trio.open_nursery() as nursery:
+                async with async_finalizer():
+                    async with trio.open_nursery() as nursery2:
+                        await nursery2.start(die_soon)
+                        await yield_()
+                        # Comment next line to make the test pass :'(
+                        nursery.cancel_scope.cancel()
+
+        @pytest.fixture
+        @async_generator
+        async def fixture():
+            async with actx():
+                await yield_()
+
+        @pytest.mark.trio
+        async def test_with_fixture(fixture):
+            await trio.sleep_forever()
+
+        @pytest.mark.trio
+        async def test_without_fixture():
+            async with actx():
+                await trio.sleep_forever()
+        """
+        )
+    )
+
+    result = testdir.runpytest()
+
+    result.assert_outcomes(failed=2)
