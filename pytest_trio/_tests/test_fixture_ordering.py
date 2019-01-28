@@ -171,7 +171,7 @@ def test_error_collection(testdir):
             raise RuntimeError("crash_late_agen".upper())
 
         async def crash(when, token):
-            with trio.open_cancel_scope(shield=True):
+            with trio.CancelScope(shield=True):
                 await trio.sleep(when)
                 raise RuntimeError(token.upper())
 
