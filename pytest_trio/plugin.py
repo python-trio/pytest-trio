@@ -31,6 +31,10 @@ else:
     # even though it uses a module-scoped Random instance.  This works
     # regardless of whether or not the random_module strategy is used.
     register_random(trio._core._run._r)
+    # We also have to enable determinism, which is disabled by default
+    # due to a small performance impact - but fine to enable in testing.
+    # See https://github.com/python-trio/trio/pull/890/ for details.
+    trio._core._run._ALLOW_DETERMINISTIC_SCHEDULING = True
 
 
 def pytest_addoption(parser):

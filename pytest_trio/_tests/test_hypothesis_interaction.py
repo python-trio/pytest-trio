@@ -1,5 +1,9 @@
 import pytest
 import trio
+from trio.tests.test_scheduler_determinism import (
+    scheduler_trace, test_the_trio_scheduler_is_not_deterministic,
+    test_the_trio_scheduler_is_deterministic_if_seeded
+)
 from hypothesis import given, settings, strategies as st
 
 from pytest_trio.plugin import _trio_test_runner_factory
@@ -31,30 +35,6 @@ async def test_mark_outer(n):
 async def test_mark_and_parametrize(x, y):
     assert x is None
     assert y in (1, 2)
-
-
-async def scheduler_trace():
-    """Returns a scheduler-dependent value we can use to check determinism."""
-    trace = []
-
-    async def tracer(name):
-        for i in range(10):
-            trace.append((name, i))
-            await trio.sleep(0)
-
-    async with trio.open_nursery() as nursery:
-        for i in range(5):
-            nursery.start_soon(tracer, i)
-
-    return tuple(trace)
-
-
-def test_the_trio_scheduler_is_not_deterministic():
-    # At least, not yet.  See https://github.com/python-trio/trio/issues/32
-    traces = []
-    for _ in range(10):
-        traces.append(trio.run(scheduler_trace))
-    assert len(set(traces)) == len(traces)
 
 
 def test_the_trio_scheduler_is_deterministic_under_hypothesis():
