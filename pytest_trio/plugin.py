@@ -225,7 +225,7 @@ class TrioFixture:
                 # should cancel them.
                 assert not self.user_done_events
                 func_value = None
-                with trio.open_cancel_scope() as cancel_scope:
+                with trio.CancelScope() as cancel_scope:
                     test_ctx.test_cancel_scope = cancel_scope
                     assert not test_ctx.crashed
                     await self._func(**resolved_kwargs)
@@ -270,7 +270,7 @@ class TrioFixture:
             except BaseException as exc:
                 assert isinstance(exc, trio.Cancelled)
                 test_ctx.crash(None)
-                with trio.open_cancel_scope(shield=True):
+                with trio.CancelScope(shield=True):
                     for event in self.user_done_events:
                         await event.wait()
 
