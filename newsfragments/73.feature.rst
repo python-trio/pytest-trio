@@ -1,0 +1,3 @@
+pytest-trio now makes the Trio scheduler deterministic while running
+inside a Hypothesis test.  Hopefully you won't see any change, but if
+you had scheduler-dependent bugs Hypothesis will be more effective now.
