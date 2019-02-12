@@ -22,6 +22,20 @@ else:
     # Ordered dict (and **kwargs) not available with Python<3.6
     ORDERED_DICTS = False
 
+try:
+    from hypothesis import register_random
+except ImportError:  # pragma: no cover
+    pass
+else:
+    # On recent versions of Hypothesis, make the Trio scheduler deterministic
+    # even though it uses a module-scoped Random instance.  This works
+    # regardless of whether or not the random_module strategy is used.
+    register_random(trio._core._run._r)
+    # We also have to enable determinism, which is disabled by default
+    # due to a small performance impact - but fine to enable in testing.
+    # See https://github.com/python-trio/trio/pull/890/ for details.
+    trio._core._run._ALLOW_DETERMINISTIC_SCHEDULING = True
+
 
 def pytest_addoption(parser):
     parser.addini(
@@ -225,7 +239,7 @@ class TrioFixture:
                 # should cancel them.
                 assert not self.user_done_events
                 func_value = None
-                with trio.open_cancel_scope() as cancel_scope:
+                with trio.CancelScope() as cancel_scope:
                     test_ctx.test_cancel_scope = cancel_scope
                     assert not test_ctx.crashed
                     await self._func(**resolved_kwargs)
@@ -270,7 +284,7 @@ class TrioFixture:
             except BaseException as exc:
                 assert isinstance(exc, trio.Cancelled)
                 test_ctx.crash(None)
-                with trio.open_cancel_scope(shield=True):
+                with trio.CancelScope(shield=True):
                     for event in self.user_done_events:
                         await event.wait()
 
@@ -345,7 +359,8 @@ def pytest_runtest_call(item):
             item.obj.hypothesis.inner_test = _trio_test_runner_factory(
                 item, item.obj.hypothesis.inner_test
             )
-        elif getattr(item.obj, 'is_hypothesis_test', False):
+        elif getattr(item.obj, 'is_hypothesis_test',
+                     False):  # pragma: no cover
             pytest.fail(
                 'test function `%r` is using Hypothesis, but pytest-trio '
                 'only works with Hypothesis 3.64.0 or later.' % item
