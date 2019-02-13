@@ -5,6 +5,18 @@ Release history
 
 .. towncrier release notes start
 
+pytest-trio 0.5.2 (2019-02-13)
+------------------------------
+
+Features
+~~~~~~~~
+
+- pytest-trio now makes the Trio scheduler deterministic while running
+  inside a Hypothesis test.  Hopefully you won't see any change, but if
+  you had scheduler-dependent bugs Hypothesis will be more effective now. (`#73 <https://github.com/python-trio/pytest-trio/issues/73>`__)
+
+- Updated for compatibility with trio v0.11.0.
+
 pytest-trio 0.5.1 (2018-09-28)
 ------------------------------
 
