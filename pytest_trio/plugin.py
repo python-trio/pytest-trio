@@ -354,7 +354,7 @@ def _trio_test_runner_factory(item, testfunc=None):
 
         if test_ctx.error_list:
             raise trio.MultiError(test_ctx.error_list)
-        elif test_ctx.crashed:
+        elif test_ctx.crashed:  # pragma: no cover
             raise trio.TrioInternalError(
                 "Test has crashed, but we couldn't recover the error "
                 "(see https://github.com/python-trio/pytest-trio/issues/75)"
