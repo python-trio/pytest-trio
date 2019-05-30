@@ -132,11 +132,11 @@ class TrioTestContext:
     def __init__(self):
         self.crashed = False
         self.test_cancel_scope = None
-        self.error_list = []
+        self.error_list = set()
 
     def crash(self, exc):
         if exc is not None:
-            self.error_list.append(exc)
+            self.error_list.add(exc)
         self.crashed = True
         if self.test_cancel_scope is not None:
             self.test_cancel_scope.cancel()
@@ -284,6 +284,19 @@ class TrioFixture:
             except BaseException as exc:
                 assert isinstance(exc, trio.Cancelled)
                 test_ctx.crash(None)
+
+                # If we are unlucky, nursery cancellation during fixture
+                # teardown can silence the original exception (fixture teardown
+                # doesn't know about the original exception, and nursery will
+                # get a Cancelled exception from the cancellation, hence
+                # considering everything went smoothly, see
+                # https://github.com/python-trio/pytest-trio/issues/77)
+                # To avoid this, we scavenge the exceptions that occurred in our
+                # children nursery, just in case they got forgotten otherwise...
+                for child_nursery in task.child_nurseries:
+                    for exc in child_nursery._pending_excs:
+                        test_ctx.crash(exc)
+
                 with trio.CancelScope(shield=True):
                     for event in self.user_done_events:
                         await event.wait()
@@ -341,6 +354,11 @@ def _trio_test_runner_factory(item, testfunc=None):
 
         if test_ctx.error_list:
             raise trio.MultiError(test_ctx.error_list)
+        elif test_ctx.crashed:
+            raise trio.TrioInternalError(
+                "Test has crashed, but we couldn't recover the error "
+                "(see https://github.com/python-trio/pytest-trio/issues/75)"
+            )
 
     _bootstrap_fixtures_and_run_test._trio_test_runner_wrapped = True
     return _bootstrap_fixtures_and_run_test

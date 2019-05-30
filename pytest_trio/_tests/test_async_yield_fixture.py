@@ -366,7 +366,9 @@ def test_async_yield_fixture_crashed_teardown_allow_other_teardowns(
     )
 
 
-def test_async_yield_fixture_crashed_then_parent_cancel(testdir, async_yield_implementation):
+def test_async_yield_fixture_crashed_then_parent_cancel(
+        testdir, async_yield_implementation
+):
     testdir.makepyfile(
         async_yield_implementation(
             """
