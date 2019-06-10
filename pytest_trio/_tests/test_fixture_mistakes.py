@@ -127,12 +127,14 @@ def test_fixture_cancels_test_but_doesnt_raise(testdir, enable_trio_mode):
         """
         import pytest
         import trio
+        from async_generator import async_generator, yield_
 
         @pytest.fixture
+        @async_generator
         async def async_fixture():
             with trio.CancelScope() as cscope:
                 cscope.cancel()
-                yield
+                await yield_()
 
 
         async def test_whatever(async_fixture):
