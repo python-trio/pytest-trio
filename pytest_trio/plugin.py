@@ -4,6 +4,7 @@ from traceback import format_exception
 from collections.abc import Coroutine, Generator
 from inspect import iscoroutinefunction, isgeneratorfunction
 import contextvars
+import outcome
 import pytest
 import trio
 from trio.testing import MockClock, trio_test
@@ -278,11 +279,13 @@ class TrioFixture:
             # code will get it again if it matters), and then use a shield to
             # keep waiting for the teardown to finish without having to worry
             # about cancellation.
+            yield_outcome = outcome.Value(None)
             try:
                 for event in self.user_done_events:
                     await event.wait()
             except BaseException as exc:
                 assert isinstance(exc, trio.Cancelled)
+                yield_outcome = outcome.Error(exc)
                 test_ctx.crash(None)
                 with trio.CancelScope(shield=True):
                     for event in self.user_done_events:
@@ -291,14 +294,14 @@ class TrioFixture:
             # Do our teardown
             if isasyncgen(func_value):
                 try:
-                    await func_value.asend(None)
+                    await yield_outcome.asend(func_value)
                 except StopAsyncIteration:
                     pass
                 else:
                     raise RuntimeError("too many yields in fixture")
             elif isinstance(func_value, Generator):
                 try:
-                    func_value.send(None)
+                    yield_outcome.send(func_value)
                 except StopIteration:
                     pass
                 else:

@@ -18,6 +18,7 @@ setup(
     install_requires=[
         "trio >= 0.11",
         "async_generator >= 1.9",
+        "outcome",
         # For node.get_closest_marker
         "pytest >= 3.6"
     ],

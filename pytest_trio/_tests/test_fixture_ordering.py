@@ -213,7 +213,8 @@ def test_background_crash_cancellation_propagation(bgmode, testdir):
         @trio_fixture
         def crashyfix(nursery):
             nursery.start_soon(crashy)
-            yield
+            with pytest.raises(trio.Cancelled):
+                yield
             # We should be cancelled here
             teardown_deadlines["crashyfix"] = trio.current_effective_deadline()
         """
@@ -224,7 +225,8 @@ def test_background_crash_cancellation_propagation(bgmode, testdir):
         async def crashyfix():
             async with trio.open_nursery() as nursery:
                 nursery.start_soon(crashy)
-                await yield_()
+                with pytest.raises(trio.Cancelled):
+                    await yield_()
                 # We should be cancelled here
                 teardown_deadlines["crashyfix"] = trio.current_effective_deadline()
         """
@@ -284,3 +286,47 @@ def test_background_crash_cancellation_propagation(bgmode, testdir):
 
     result = testdir.runpytest()
     result.assert_outcomes(passed=1, failed=1)
+
+
+# See the thread starting at
+# https://github.com/python-trio/pytest-trio/pull/77#issuecomment-499979536
+# for details on the real case that this was minimized from
+def test_complex_cancel_interaction_regression(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+        import trio
+        from async_generator import asynccontextmanager, async_generator, yield_
+
+        async def die_soon():
+            raise RuntimeError('oops'.upper())
+
+        @asynccontextmanager
+        @async_generator
+        async def async_finalizer():
+            try:
+                await yield_()
+            finally:
+                await trio.sleep(0)
+
+        @pytest.fixture
+        @async_generator
+        async def fixture(nursery):
+            async with trio.open_nursery() as nursery1:
+                async with async_finalizer():
+                    async with trio.open_nursery() as nursery2:
+                        nursery2.start_soon(die_soon)
+                        await yield_()
+                        nursery1.cancel_scope.cancel()
+
+        @pytest.mark.trio
+        async def test_try(fixture):
+            await trio.sleep_forever()
+        """
+    )
+
+    result = testdir.runpytest()
+    result.assert_outcomes(passed=0, failed=1)
+    result.stdout.fnmatch_lines_random([
+            "*OOPS*",
+    ])
