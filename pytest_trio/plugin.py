@@ -355,8 +355,7 @@ def _trio_test_runner_factory(item, testfunc=None):
                 test_ctx.error_list.append(
                     RuntimeError(
                         "{} cancelled the test but didn't "
-                        "raise an error"
-                        .format(fixture.name)
+                        "raise an error".format(fixture.name)
                     )
                 )
 

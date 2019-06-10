@@ -143,6 +143,4 @@ def test_fixture_cancels_test_but_doesnt_raise(testdir, enable_trio_mode):
     result = testdir.runpytest()
 
     result.assert_outcomes(failed=1)
-    result.stdout.fnmatch_lines(
-        ["*async_fixture*cancelled the test*"]
-    )
+    result.stdout.fnmatch_lines(["*async_fixture*cancelled the test*"])

@@ -328,5 +328,5 @@ def test_complex_cancel_interaction_regression(testdir):
     result = testdir.runpytest()
     result.assert_outcomes(passed=0, failed=1)
     result.stdout.fnmatch_lines_random([
-            "*OOPS*",
+        "*OOPS*",
     ])
