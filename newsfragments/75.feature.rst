@@ -1,4 +1,6 @@
 Incompatible change: if you use ``yield`` inside a Trio fixture, and
 the ``yield`` gets cancelled (for example, due to a background task
 crashing), then the ``yield`` will now raise :exc:`trio.Cancelled`.
-See :ref:`cancel-yield` for details.
+See :ref:`cancel-yield` for details. Also, in this same case,
+pytest-trio will now reliably mark the test as failed, even if the
+fixture doesn't go on to raise an exception.
