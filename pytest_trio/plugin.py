@@ -133,11 +133,16 @@ class TrioTestContext:
     def __init__(self):
         self.crashed = False
         self.test_cancel_scope = None
+        self.fixtures_with_errors = set()
+        self.fixtures_with_cancel = set()
         self.error_list = []
 
-    def crash(self, exc):
-        if exc is not None:
+    def crash(self, fixture, exc):
+        if exc is None:
+            self.fixtures_with_cancel.add(fixture)
+        else:
             self.error_list.append(exc)
+            self.fixtures_with_errors.add(fixture)
         self.crashed = True
         if self.test_cancel_scope is not None:
             self.test_cancel_scope.cancel()
@@ -193,7 +198,7 @@ class TrioFixture:
                 finally:
                     nursery_fixture.cancel_scope.cancel()
         except BaseException as exc:
-            test_ctx.crash(exc)
+            test_ctx.crash(self, exc)
         finally:
             self.setup_done.set()
             self._teardown_done.set()
@@ -286,7 +291,7 @@ class TrioFixture:
             except BaseException as exc:
                 assert isinstance(exc, trio.Cancelled)
                 yield_outcome = outcome.Error(exc)
-                test_ctx.crash(None)
+                test_ctx.crash(self, None)
                 with trio.CancelScope(shield=True):
                     for event in self.user_done_events:
                         await event.wait()
@@ -340,6 +345,19 @@ def _trio_test_runner_factory(item, testfunc=None):
             for fixture in test.register_and_collect_dependencies():
                 nursery.start_soon(
                     fixture.run, test_ctx, contextvars_ctx, name=fixture.name
+                )
+
+        silent_cancellers = (
+            test_ctx.fixtures_with_cancel - test_ctx.fixtures_with_errors
+        )
+        if silent_cancellers:
+            for fixture in silent_cancellers:
+                test_ctx.error_list.append(
+                    RuntimeError(
+                        "{} cancelled the test but didn't "
+                        "raise an error"
+                        .format(fixture.name)
+                    )
                 )
 
         if test_ctx.error_list:

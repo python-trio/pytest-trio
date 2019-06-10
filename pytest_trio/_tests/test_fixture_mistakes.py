@@ -117,3 +117,32 @@ def test_async_fixture_with_sync_test_in_trio_mode(testdir, enable_trio_mode):
     result.stdout.fnmatch_lines(
         ["*: Trio fixtures can only be used by Trio tests*"]
     )
+
+
+@enable_trio_mode
+def test_fixture_cancels_test_but_doesnt_raise(testdir, enable_trio_mode):
+    enable_trio_mode(testdir)
+
+    testdir.makepyfile(
+        """
+        import pytest
+        import trio
+
+        @pytest.fixture
+        async def async_fixture():
+            with trio.CancelScope() as cscope:
+                cscope.cancel()
+                yield
+
+
+        async def test_whatever(async_fixture):
+            pass
+        """
+    )
+
+    result = testdir.runpytest()
+
+    result.assert_outcomes(failed=1)
+    result.stdout.fnmatch_lines(
+        ["*async_fixture*cancelled the test*"]
+    )
