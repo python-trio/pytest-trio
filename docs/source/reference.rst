@@ -106,6 +106,114 @@ but Trio fixtures **must be test scoped**. Class, module, and session
 scope are not supported.
 
 
+.. _cancel-yield:
+
+An important note about ``yield`` fixtures
+------------------------------------------
+
+Like any pytest fixture, Trio fixtures can contain both setup and
+teardown code separated by a ``yield``::
+
+   @pytest.fixture
+   async def my_fixture():
+       ... setup code ...
+       yield
+       ... teardown code ...
+
+When pytest-trio executes this fixture, it creates a new task, and
+runs the setup code until it reaches the ``yield``. Then the fixture's
+task goes to sleep. Once the test has finished, the fixture task wakes
+up again and resumes at the ``yield``, so it can execute the teardown
+code.
+
+So the ``yield`` in a fixture is sort of like calling ``await
+wait_for_test_to_finish()``. And in Trio, any ``await``\-able
+operation can be cancelled. For example, we could put a timeout on the
+``yield``::
+
+   @pytest.fixture
+   async def my_fixture():
+       ... setup code ...
+       with trio.move_on_after(5):
+           yield  # this yield gets cancelled after 5 seconds
+       ... teardown code ...
+
+Now if the test takes more than 5 seconds to execute, this fixture
+will cancel the ``yield``.
+
+That's kind of a strange thing to do, but there's another version of
+this that's extremely common. Suppose your fixture spawns a background
+task, and then the background task raises an exception. Whenever a
+background task raises an exception, it automatically cancels
+everything inside the nursery's scope – which includes our ``yield``::
+
+   @pytest.fixture
+   async def my_fixture(nursery):
+       nursery.start_soon(function_that_raises_exception)
+       yield   # this yield gets cancelled after the background task crashes
+       ... teardown code ...
+
+If you use fixtures with background tasks, you'll probably end up
+cancelling one of these ``yield``\s sooner or later. So what happens
+if the ``yield`` gets cancelled?
+
+First, pytest-trio assumes that something has gone wrong and there's
+no point in continuing the test. If the top-level test function is
+running, then it cancels it.
+
+Then, pytest-trio waits for the test function to finish, and
+then begins tearing down fixtures as normal.
+
+During this teardown process, it will eventually reach the fixture
+that cancelled its ``yield``. This fixture gets resumed to execute its
+teardown logic, but with a special twist: since the ``yield`` was
+cancelled, the ``yield`` raises :exc:`trio.Cancelled`.
+
+Now, here's the punchline: this means that in our examples above, the
+teardown code might not be executed at all! **This is different from
+how pytest fixtures normally work.** Normally, the ``yield`` in a
+pytest fixture never raises an exception, so you can be certain that
+any code you put after it will execute as normal. But if you have a
+fixture with background tasks, and they crash, then your ``yield``
+might raise an exception, and Python will skip executing the code
+after the ``yield``.
+
+In our experience, most fixtures are fine with this, and it prevents
+some `weird problems
+<https://github.com/python-trio/pytest-trio/issues/75>`__ that can
+happen otherwise. But it's something to be aware of.
+
+If you have a fixture where the ``yield`` might be cancelled but you
+still need to run teardown code, then you can use a ``finally``
+block::
+
+   @pytest.fixture
+   async def my_fixture(nursery):
+       nursery.start_soon(function_that_crashes)
+       try:
+           # This yield could be cancelled...
+           yield
+       finally:
+           # But this code will run anyway
+           ... teardown code ...
+
+(But, watch out: the teardown code is still running in a cancelled
+context, so if it has any ``await``\s it could raise
+:exc:`trio.Cancelled` again.)
+
+Or if you use ``with`` to handle teardown, then you don't have to
+worry about this because ``with`` blocks always perform cleanup even
+if there's an exception::
+
+   @pytest.fixture
+   async def my_fixture(nursery):
+       with get_obj_that_must_be_torn_down() as obj:
+           nursery.start_soon(function_that_crashes, obj)
+           # This could raise trio.Cancelled...
+           # ...but that's OK, the 'with' block will still tear down 'obj'
+           yield obj
+
+
 Concurrent setup/teardown
 -------------------------
 
