@@ -126,8 +126,8 @@ something will happen::
    async def test_sleep_efficiently_and_reliably(autojump_clock):
        start_time = trio.current_time()
        await trio.sleep(1)
-       end_time = trio.current_time()
-       assert start_time - end_time == 1
+       finish_time = trio.current_time()
+       assert finish_time - start_time == 1
 
 In the version of this test we saw before that used real time, at the
 end we had to use a ``>=`` comparison, in order to account for
