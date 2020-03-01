@@ -3,10 +3,18 @@ import sys
 import asyncio
 from async_generator import async_generator, yield_
 
+pytestmark = []
+
 try:
     import trio_asyncio
 except ImportError:
-    pytestmark = pytest.mark.skip(reason="trio-asyncio not available")
+    pytestmark.append(pytest.mark.skip(reason="trio-asyncio not available"))
+
+# https://github.com/python-trio/trio-asyncio/issues/61
+pytestmark.append(
+    pytest.mark.
+    filterwarnings("ignore:trio.Event.clear.*:trio.TrioDeprecationWarning")
+)
 
 
 async def use_asyncio():
