@@ -3,7 +3,6 @@ dist: bionic
 language: python
 python:
 - pypy3.6-7.2.0
-- 3.5-dev
 - 3.6
 - 3.6-dev
 - 3.7
@@ -12,17 +11,6 @@ python:
 - 3.8-dev
 jobs:
   include:
-  - python: 3.5.0
-    dist: trusty
-  # The last pytest to support Python 3.5.2 fails to start with recent attrs
-  # - python: 3.5.2
-  #  dist: trusty
-
-  # Python3.5 on MacOS doesn't currently support TLSv1.2 needed to use pip :(
-  # http://pyfound.blogspot.fr/2017/01/time-to-upgrade-your-python-tls-v12.html
-  # - os: osx
-  #   language: generic
-  #   env: MACPYTHON=3.5.4
   - os: osx
     language: generic
     env: MACPYTHON=3.6.8
