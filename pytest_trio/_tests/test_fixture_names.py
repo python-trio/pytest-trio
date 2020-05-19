@@ -12,7 +12,7 @@ def fixture_with_unique_name(nursery):
 async def test_fixture_names(fixture_with_unique_name):
     # This might be a bit fragile ... if we rearrange the nursery hierarchy
     # somehow so it breaks, then we can make it more robust.
-    task = trio.hazmat.current_task()
+    task = trio.lowlevel.current_task()
     assert task.name == "<test 'test_fixture_names'>"
     sibling_names = {task.name for task in task.parent_nursery.child_tasks}
     assert "<fixture 'fixture_with_unique_name'>" in sibling_names
