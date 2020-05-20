@@ -6,17 +6,13 @@ import re
 @pytest.fixture(params=['Python>=36', 'async_generator'])
 def async_yield_implementation(request):
     if request.param == 'Python>=36':
-        if sys.version_info < (3, 6):
-            pytest.skip("requires python3.6")
-        else:
+        def patch_code(code):
+            # Convert code to use Python>=3.6 builtin async generator
+            code = re.sub(r'(?m)^\s*@async_generator\n', r'', code)
+            code = re.sub(r'await yield_', r'yield', code)
+            return code
 
-            def patch_code(code):
-                # Convert code to use Python>=3.6 builtin async generator
-                code = re.sub(r'(?m)^\s*@async_generator\n', r'', code)
-                code = re.sub(r'await yield_', r'yield', code)
-                return code
-
-            return patch_code
+        return patch_code
     else:
         return lambda x: x
 
