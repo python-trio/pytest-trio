@@ -6,6 +6,7 @@ import re
 @pytest.fixture(params=['Python>=36', 'async_generator'])
 def async_yield_implementation(request):
     if request.param == 'Python>=36':
+
         def patch_code(code):
             # Convert code to use Python>=3.6 builtin async generator
             code = re.sub(r'(?m)^\s*@async_generator\n', r'', code)
