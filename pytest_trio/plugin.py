@@ -208,7 +208,7 @@ class TrioFixture:
 
         # This is a gross hack. I guess Trio should provide a context=
         # argument to start_soon/start?
-        task = trio.hazmat.current_task()
+        task = trio.lowlevel.current_task()
         assert canary not in task.context
         task.context = contextvars_ctx
         # Force a yield so we pick up the new context

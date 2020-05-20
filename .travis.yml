@@ -1,26 +1,25 @@
+os: linux
+dist: bionic
 language: python
 python:
-- 3.5.0
-- 3.5.2
-- 3.5-dev
+- pypy3.6-7.2.0
 - 3.6
 - 3.6-dev
+- 3.7
 - 3.7-dev
-sudo: false
-dist: trusty
-matrix:
+- 3.8
+- 3.8-dev
+jobs:
   include:
-  - os: linux
-    language: generic
-    env: USE_PYPY_RELEASE_VERSION=5.9-beta
-  # Python3.5 on MacOS doesn't currently support TLSv1.2 needed to use pip :(
-  # http://pyfound.blogspot.fr/2017/01/time-to-upgrade-your-python-tls-v12.html
-  # - os: osx
-  #   language: generic
-  #   env: MACPYTHON=3.5.4
   - os: osx
     language: generic
-    env: MACPYTHON=3.6.3
+    env: MACPYTHON=3.6.8
+  - os: osx
+    language: generic
+    env: MACPYTHON=3.7.7
+  - os: osx
+    language: generic
+    env: MACPYTHON=3.8.1
   - os: linux
     language: python
     python: 3.6
