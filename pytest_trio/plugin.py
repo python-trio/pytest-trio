@@ -17,12 +17,6 @@ from async_generator import (
 # Basic setup
 ################################################################
 
-if sys.version_info >= (3, 6):
-    ORDERED_DICTS = True
-else:
-    # Ordered dict (and **kwargs) not available with Python<3.6
-    ORDERED_DICTS = False
-
 try:
     from hypothesis import register_random
 except ImportError:  # pragma: no cover
