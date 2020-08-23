@@ -27,7 +27,7 @@ fail::
        assert False
 
 If we run this under pytest normally, then the tests are skipped and we get
-warnings explaining how pytest itself does not directly support async def
+a warning explaining how pytest itself does not directly support async def
 tests.  Note that in versions of pytest prior to v4.4.0 the tests end up
 being reported as passing with other warnings despite not actually having
 been properly run.
