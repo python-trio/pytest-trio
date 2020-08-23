@@ -339,7 +339,7 @@ this is easy: if you request port 0, then the operating system will
 pick an unused one for you automatically. Problem solved!
 
 But wait... if the operating system is picking the port for us, how do
-we know figure out which one it picked, so we can connect to it later?
+we know which one it picked, so we can connect to it later?
 
 Well, there's no way to predict the port ahead of time. But after
 :func:`~trio.serve_tcp` has opened a port, it can check and see what
