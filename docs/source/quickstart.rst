@@ -26,43 +26,36 @@ fail::
    async def test_should_fail():
        assert False
 
-If we run this under pytest normally, then we get a strange result:
+If we run this under pytest normally, then the tests are skipped and we get
+warnings.  Note that in versions of pytest prior to v4.4.0 the tests end up
+being reported as passing with other warnings despite not actually having
+been properly run.
 
 .. code-block:: none
 
    $ pytest test_example.py
-
    ======================== test session starts =========================
-   platform linux -- Python 3.6.5, pytest-3.6.3, py-1.5.4, pluggy-0.6.0
-   rootdir: /tmp, inifile:
+   platform linux -- Python 3.8.5, pytest-6.0.1, py-1.9.0, pluggy-0.13.1
+   rootdir: /tmp
    collected 2 items
 
-   test_example.py ..                                             [100%]
+   test_example.py ss                                             [100%]
 
    ========================== warnings summary ==========================
    test_example.py::test_sleep
-     .../_pytest/python.py:196: RuntimeWarning: coroutine 'test_sleep' was never awaited
-       testfunction(**testargs)
-
    test_example.py::test_should_fail
-     .../_pytest/python.py:196: RuntimeWarning: coroutine 'test_should_fail' was never awaited
-       testfunction(**testargs)
+     .../_pytest/python.py:169: PytestUnhandledCoroutineWarning: async
+     def functions are not natively supported and have been skipped.
+     You need to install a suitable plugin for your async framework, for
+     example:
+       - pytest-asyncio
+       - pytest-trio
+       - pytest-tornasync
+       - pytest-twisted
+       warnings.warn(PytestUnhandledCoroutineWarning(msg.format(nodeid)))
 
-   -- Docs: http://doc.pytest.org/en/latest/warnings.html
-   ================ 2 passed, 2 warnings in 0.02 seconds ================
-
-So ``test_sleep`` passed, which is what we expected... but
-``test_should_fail`` also passes, which is strange. And it says that
-the whole test run completed in 0.02 seconds, which is weird, because
-``test_sleep`` should have taken at least second to run. And then
-there are these strange warnings at the bottom... what's going on
-here?
-
-The problem is that our tests are async, and pytest doesn't know what
-to do with it. So it basically skips running them entirely, and then
-reports them as passed. This is not very helpful! If you see warnings
-like this, or if your tests seem to pass but your coverage reports
-claim that they weren't run at all, then this might be the problem.
+   -- Docs: https://docs.pytest.org/en/stable/warnings.html
+   =================== 2 skipped, 2 warnings in 0.26s ===================
 
 Here's the fix:
 
@@ -89,9 +82,9 @@ And we're done! Let's try running pytest again:
 
    $ pytest test_example.py
    ======================== test session starts =========================
-   platform linux -- Python 3.6.5, pytest-3.6.3, py-1.5.4, pluggy-0.6.0
-   rootdir: /tmp, inifile: pytest.ini
-   plugins: trio-0.4.2
+   platform linux -- Python 3.8.5, pytest-6.0.1, py-1.9.0, pluggy-0.13.1
+   rootdir: /tmp, configfile: pytest.ini
+   plugins: trio-0.6.0
    collected 2 items
 
    test_example.py .F                                             [100%]
@@ -99,12 +92,25 @@ And we're done! Let's try running pytest again:
    ============================== FAILURES ==============================
    __________________________ test_should_fail __________________________
 
+   value = <trio.Nursery object at 0x7f97b21fafa0>
+
+       async def yield_(value=None):
+   >       return await _yield_(value)
+
+   venv/lib/python3.8/site-packages/async_generator/_impl.py:106:
+   _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+   venv/lib/python3.8/site-packages/async_generator/_impl.py:99: in _yield_
+       return (yield _wrap(value))
+   _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
        async def test_should_fail():
    >       assert False
    E       assert False
 
-   test_example.py:7: AssertionError
-   ================= 1 failed, 1 passed in 1.05 seconds =================
+   test_example.py:11: AssertionError
+   ====================== short test summary info =======================
+   FAILED test_example.py::test_should_fail - assert False
+   ==================== 1 failed, 1 passed in 1.23s =====================
 
 Notice that now it says ``plugins: trio``, which means that
 pytest-trio is installed, and the results make sense: the good test
