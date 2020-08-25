@@ -139,4 +139,4 @@ def test_raise_in_async_fixture_cause_pytest_error(testdir):
 
     result = testdir.runpytest()
 
-    result.assert_outcomes(error=1)
+    result.assert_outcomes(errors=1)

@@ -259,7 +259,7 @@ def test_async_yield_fixture_with_multiple_yields(
     result = testdir.runpytest()
 
     # TODO: should trigger error instead of failure
-    # result.assert_outcomes(error=1)
+    # result.assert_outcomes(errors=1)
     result.assert_outcomes(failed=1)
 
 
