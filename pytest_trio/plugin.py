@@ -39,6 +39,12 @@ def pytest_addoption(parser):
         type="bool",
         default=False,
     )
+    parser.addini(
+        "trio_run",
+        "what runner should pytest-trio use? [trio, qtrio]",
+        type="linelist",
+        default=["trio"],
+    )
 
 
 def pytest_configure(config):
@@ -308,7 +314,23 @@ class TrioFixture:
 
 
 def _trio_test_runner_factory(item, testfunc=None):
-    testfunc = testfunc or item.obj
+    if testfunc:
+        run = trio.run
+    else:
+        testfunc = item.obj
+
+        runs = {marker.kwargs.get('run', trio.run) for marker in item.iter_markers("trio")}
+
+        if len(runs) == 0:
+            1/0
+        elif len(runs) == 1:
+            [run] = runs
+        else:
+            runs.discard(trio.run)
+            if len(runs) == 1:
+                [run] = runs
+            else:
+                1/0
 
     if getattr(testfunc, '_trio_test_runner_wrapped', False):
         # We have already wrapped this, perhaps because we combined Hypothesis
@@ -320,7 +342,7 @@ def _trio_test_runner_factory(item, testfunc=None):
             'test function `%r` is marked trio but is not async' % item
         )
 
-    @trio_test
+    @trio_test(run=run)
     async def _bootstrap_fixtures_and_run_test(**kwargs):
         __tracebackhide__ = True
 
@@ -438,19 +460,29 @@ def pytest_fixture_setup(fixturedef, request):
 ################################################################
 
 
-def automark(items):
+def automark(items, run=trio.run):
     for item in items:
         if hasattr(item.obj, "hypothesis"):
             test_func = item.obj.hypothesis.inner_test
         else:
             test_func = item.obj
         if iscoroutinefunction(test_func):
-            item.add_marker(pytest.mark.trio)
+            item.add_marker(pytest.mark.trio(run=run))
 
 
 def pytest_collection_modifyitems(config, items):
     if config.getini("trio_mode"):
-        automark(items)
+        [run_string] = config.getini("trio_run")
+
+        if run_string == "trio":
+            run = trio.run
+        elif run_string == "qtrio":
+            import qtrio
+            run = qtrio.run
+        else:
+            1/0
+
+        automark(items, run=run)
 
 
 ################################################################
