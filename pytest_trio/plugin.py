@@ -1,4 +1,5 @@
 """pytest-trio implementation."""
+from functools import wraps, partial
 import sys
 from traceback import format_exception
 from collections.abc import Coroutine, Generator
@@ -7,7 +8,8 @@ import contextvars
 import outcome
 import pytest
 import trio
-from trio.testing import MockClock, trio_test
+from trio.abc import Clock, Instrument
+from trio.testing import MockClock
 from async_generator import (
     async_generator, yield_, asynccontextmanager, isasyncgen,
     isasyncgenfunction
@@ -313,6 +315,42 @@ class TrioFixture:
                     raise RuntimeError("too many yields in fixture")
 
 
+def _trio_test(fn=None, *, run=trio.run):
+    """Use:
+        @trio_test
+        async def test_whatever():
+            await ...
+
+    Also: if a pytest fixture is passed in that subclasses the ``Clock`` abc, then
+    that clock is passed to ``trio.run()``.
+    """
+
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(**kwargs):
+            __tracebackhide__ = True
+            clocks = [c for c in kwargs.values() if isinstance(c, Clock)]
+            if not clocks:
+                clock = None
+            elif len(clocks) == 1:
+                clock = clocks[0]
+            else:
+                raise ValueError("too many clocks spoil the broth!")
+            instruments = [
+                i for i in kwargs.values() if isinstance(i, Instrument)
+            ]
+            return run(
+                partial(fn, **kwargs), clock=clock, instruments=instruments
+            )
+
+        return wrapper
+
+    if fn is None:
+        return decorator
+
+    return decorator(fn)
+
+
 def _trio_test_runner_factory(item, testfunc=None):
     if testfunc:
         run = trio.run
@@ -345,7 +383,7 @@ def _trio_test_runner_factory(item, testfunc=None):
             'test function `%r` is marked trio but is not async' % item
         )
 
-    @trio_test(run=run)
+    @_trio_test(run=run)
     async def _bootstrap_fixtures_and_run_test(**kwargs):
         __tracebackhide__ = True
 
