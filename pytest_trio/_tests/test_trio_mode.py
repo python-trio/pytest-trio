@@ -39,7 +39,9 @@ def test_trio_mode(testdir, enable_trio_mode):
 
 
 def test_qtrio_mode_configuration(testdir):
-    testdir.makefile(".ini", pytest="[pytest]\ntrio_mode = true\ntrio_run = qtrio\n")
+    testdir.makefile(
+        ".ini", pytest="[pytest]\ntrio_mode = true\ntrio_run = qtrio\n"
+    )
 
     qtrio_text = """
     import trio

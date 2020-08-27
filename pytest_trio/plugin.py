@@ -319,10 +319,13 @@ def _trio_test_runner_factory(item, testfunc=None):
     else:
         testfunc = item.obj
 
-        runs = {marker.kwargs.get('run', trio.run) for marker in item.iter_markers("trio")}
+        runs = {
+            marker.kwargs.get('run', trio.run)
+            for marker in item.iter_markers("trio")
+        }
 
         if len(runs) == 0:
-            1/0
+            1 / 0
         elif len(runs) == 1:
             [run] = runs
         else:
@@ -330,7 +333,7 @@ def _trio_test_runner_factory(item, testfunc=None):
             if len(runs) == 1:
                 [run] = runs
             else:
-                1/0
+                1 / 0
 
     if getattr(testfunc, '_trio_test_runner_wrapped', False):
         # We have already wrapped this, perhaps because we combined Hypothesis
@@ -480,7 +483,7 @@ def pytest_collection_modifyitems(config, items):
             import qtrio
             run = qtrio.run
         else:
-            1/0
+            1 / 0
 
         automark(items, run=run)
 
