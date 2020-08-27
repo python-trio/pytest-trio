@@ -16,8 +16,7 @@ def enable_trio_mode_via_conftest_py(testdir):
 
 
 enable_trio_mode = pytest.mark.parametrize(
-    "enable_trio_mode",
-    [
+    "enable_trio_mode", [
         enable_trio_mode_via_pytest_ini,
         enable_trio_mode_trio_run_via_pytest_ini,
         enable_trio_mode_via_conftest_py,

@@ -156,7 +156,6 @@ class TrioFixture:
     test itself as well, since the test is basically just a fixture with no
     dependents and no teardown.
     """
-
     def __init__(self, name, func, pytest_kwargs, is_test=False):
         self.name = name
         self._func = func
