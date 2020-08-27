@@ -38,22 +38,23 @@ def test_trio_mode(testdir, enable_trio_mode):
     result.assert_outcomes(passed=2, failed=2)
 
 
-def test_qtrio_mode_configuration(testdir):
+qtrio_text = """
+import trio
+
+fake_used = False
+
+def run(*args, **kwargs):
+    global fake_used
+    fake_used = True
+
+    return trio.run(*args, **kwargs)
+"""
+
+
+def test_qtrio_mode_and_run_configuration(testdir):
     testdir.makefile(
         ".ini", pytest="[pytest]\ntrio_mode = true\ntrio_run = qtrio\n"
     )
-
-    qtrio_text = """
-    import trio
-
-    fake_used = False
-
-    def run(*args, **kwargs):
-        global fake_used
-        fake_used = True
-
-        return trio.run(*args, **kwargs)
-    """
 
     testdir.makepyfile(qtrio=qtrio_text)
 
@@ -61,6 +62,29 @@ def test_qtrio_mode_configuration(testdir):
     import qtrio
     import trio
 
+    async def test_fake_qtrio_used():
+        await trio.sleep(0)
+        assert qtrio.fake_used
+    """
+    testdir.makepyfile(test_text)
+
+    result = testdir.runpytest()
+    result.assert_outcomes(passed=1)
+
+
+def test_qtrio_just_run_configuration(testdir):
+    testdir.makefile(
+        ".ini", pytest="[pytest]\ntrio_run = qtrio\n"
+    )
+
+    testdir.makepyfile(qtrio=qtrio_text)
+
+    test_text = """
+    import pytest
+    import qtrio
+    import trio
+
+    @pytest.mark.trio
     async def test_fake_qtrio_used():
         await trio.sleep(0)
         assert qtrio.fake_used
