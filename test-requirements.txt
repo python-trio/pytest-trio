@@ -1,4 +1,4 @@
 pytest >= 6.0.0  # https://github.com/python-trio/pytest-trio/pull/98#issuecomment-678699693
 pytest-cov
 hypothesis>=3.64
---upgrade https://github.com/altendky/trio/archive/configurable_trio_run.zip
+https://github.com/altendky/trio/archive/configurable_trio_run.zip
