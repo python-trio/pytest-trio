@@ -51,7 +51,7 @@ def run(*args, **kwargs):
 """
 
 
-def test_qtrio_mode_and_run_configuration(testdir):
+def test_trio_mode_and_qtrio_run_configuration(testdir):
     testdir.makefile(
         ".ini", pytest="[pytest]\ntrio_mode = true\ntrio_run = qtrio\n"
     )
@@ -62,6 +62,27 @@ def test_qtrio_mode_and_run_configuration(testdir):
     import qtrio
     import trio
 
+    async def test_fake_qtrio_used():
+        await trio.sleep(0)
+        assert qtrio.fake_used
+    """
+    testdir.makepyfile(test_text)
+
+    result = testdir.runpytest()
+    result.assert_outcomes(passed=1)
+
+
+def test_trio_mode_and_qtrio_marker(testdir):
+    testdir.makefile(".ini", pytest="[pytest]\ntrio_mode = true\n")
+
+    testdir.makepyfile(qtrio=qtrio_text)
+
+    test_text = """
+    import pytest
+    import qtrio
+    import trio
+
+    @pytest.mark.trio(run=qtrio.run)
     async def test_fake_qtrio_used():
         await trio.sleep(0)
         assert qtrio.fake_used
