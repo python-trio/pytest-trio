@@ -129,9 +129,11 @@ def test_invalid_trio_run_fails(testdir):
 
     result = testdir.runpytest()
     result.assert_outcomes()
-    result.stdout.fnmatch_lines([
-        f"*ValueError: {run_name!r} not valid for 'trio_run' config.  Must be one of: *"
-    ])
+    result.stdout.fnmatch_lines(
+        [
+            f"*ValueError: {run_name!r} not valid for 'trio_run' config.  Must be one of: *"
+        ]
+    )
 
 
 def test_multiple_custom_trio_runs_fail(testdir):
@@ -154,6 +156,8 @@ def test_multiple_custom_trio_runs_fail(testdir):
 
     result = testdir.runpytest()
     result.assert_outcomes(failed=1)
-    result.stdout.fnmatch_lines([
-        f"*ValueError: Not yet able to select from more than one third-party runner.  Found: *"
-    ])
+    result.stdout.fnmatch_lines(
+        [
+            f"*ValueError: Not yet able to select from more than one third-party runner.  Found: *"
+        ]
+    )

@@ -369,7 +369,9 @@ def _trio_test_runner_factory(item, testfunc=None):
             if len(runs) == 1:
                 [run] = runs
             else:
-                runs_string = ', '.join(sorted(f"{f.__module__}.{f.__name__}" for f in runs))
+                runs_string = ', '.join(
+                    sorted(f"{f.__module__}.{f.__name__}" for f in runs)
+                )
                 raise ValueError(
                     "Not yet able to select from more than one third-party" +
                     f" runner.  Found: {runs_string}"
