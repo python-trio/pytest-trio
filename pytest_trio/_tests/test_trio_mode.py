@@ -111,3 +111,28 @@ def test_invalid_trio_run_fails(testdir):
     result.stdout.fnmatch_lines([
         f"*ValueError: {run_name!r} not valid for 'trio_run' config.  Must be one of: *"
     ])
+
+
+def test_multiple_custom_trio_runs_fail(testdir):
+    test_text = """
+    import pytest
+    import pytest_trio
+
+    def f():
+        pass
+
+    def g():
+        pass
+
+    @pytest.mark.trio(run=f)
+    @pytest.mark.trio(run=g)
+    async def test():
+        pass
+    """
+    testdir.makepyfile(test_text)
+
+    result = testdir.runpytest()
+    result.assert_outcomes(failed=1)
+    result.stdout.fnmatch_lines([
+        f"*ValueError: Not yet able to select from more than one third-party runner.  Found: *"
+    ])
