@@ -315,7 +315,7 @@ class TrioFixture:
                     raise RuntimeError("too many yields in fixture")
 
 
-def _trio_test(fn=None, *, run=trio.run):
+def _trio_test(run):
     """Use:
         @trio_test
         async def test_whatever():
@@ -345,10 +345,7 @@ def _trio_test(fn=None, *, run=trio.run):
 
         return wrapper
 
-    if fn is None:
-        return decorator
-
-    return decorator(fn)
+    return decorator
 
 
 def _trio_test_runner_factory(item, testfunc=None):
