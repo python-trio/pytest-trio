@@ -373,8 +373,8 @@ def _trio_test_runner_factory(item, testfunc=None):
                 [run] = runs
             else:
                 raise ValueError(
-                    "Not yet able to select from more than one third-party"
-                    + f" runner.  Found: {', '.join(sorted(runs))}"
+                    "Not yet able to select from more than one third-party" +
+                    f" runner.  Found: {', '.join(sorted(runs))}"
                 )
 
     if getattr(testfunc, '_trio_test_runner_wrapped', False):
@@ -525,8 +525,8 @@ def choose_run(config):
         run = qtrio.run
     else:
         raise ValueError(
-            f"{run_string!r} not valid for 'trio_run' config."
-            + "  Must be one of: trio, qtrio"
+            f"{run_string!r} not valid for 'trio_run' config." +
+            "  Must be one of: trio, qtrio"
         )
 
     return run
