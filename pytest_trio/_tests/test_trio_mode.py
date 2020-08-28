@@ -91,3 +91,23 @@ def test_qtrio_just_run_configuration(testdir):
 
     result = testdir.runpytest()
     result.assert_outcomes(passed=1)
+
+
+def test_invalid_trio_run_fails(testdir):
+    run_name = "invalid_trio_run"
+
+    testdir.makefile(
+        ".ini", pytest=f"[pytest]\ntrio_mode = true\ntrio_run = {run_name}\n"
+    )
+
+    test_text = """
+    async def test():
+        pass
+    """
+    testdir.makepyfile(test_text)
+
+    result = testdir.runpytest()
+    result.assert_outcomes()
+    result.stdout.fnmatch_lines([
+        f"*ValueError: {run_name!r} not valid for 'trio_run' config.  Must be one of: *"
+    ])
