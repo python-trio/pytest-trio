@@ -131,9 +131,6 @@ def pytest_exception_interact(node, call, report):
 canary = contextvars.ContextVar("pytest-trio canary")
 
 
-config_run = None
-
-
 class TrioTestContext:
     def __init__(self):
         self.crashed = False
@@ -360,6 +357,7 @@ def _trio_test_runner_factory(item, testfunc=None):
     else:
         testfunc = item.obj
 
+        config_run = choose_run(config=item.config)
         runs = {
             marker.kwargs.get('run', config_run)
             for marker in item.iter_markers("trio")
@@ -514,9 +512,7 @@ def automark(items, run=trio.run):
             item.add_marker(pytest.mark.trio(run=run))
 
 
-def pytest_collection_modifyitems(config, items):
-    global config_run
-
+def choose_run(config):
     [run_string] = config.getini("trio_run")
 
     if run_string == "trio":
@@ -527,10 +523,12 @@ def pytest_collection_modifyitems(config, items):
     else:
         1 / 0
 
-    config_run = run
+    return run
 
+
+def pytest_collection_modifyitems(config, items):
     if config.getini("trio_mode"):
-        automark(items, run=run)
+        automark(items, run=choose_run(config=config))
 
 
 ################################################################
