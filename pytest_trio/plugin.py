@@ -364,7 +364,7 @@ def _trio_test_runner_factory(item, testfunc=None):
         }
 
         if len(runs) == 0:
-            1 / 0
+            raise RuntimeError("No 'trio' marker found.")
         elif len(runs) == 1:
             [run] = runs
         else:
@@ -372,7 +372,10 @@ def _trio_test_runner_factory(item, testfunc=None):
             if len(runs) == 1:
                 [run] = runs
             else:
-                1 / 0
+                raise ValueError(
+                    "Not yet able to select from more than one third-party"
+                    + f" runner.  Found: {', '.join(sorted(runs))}"
+                )
 
     if getattr(testfunc, '_trio_test_runner_wrapped', False):
         # We have already wrapped this, perhaps because we combined Hypothesis
@@ -521,7 +524,10 @@ def choose_run(config):
         import qtrio
         run = qtrio.run
     else:
-        1 / 0
+        raise ValueError(
+            f"{run_string!r} not valid for 'trio_run' config."
+            + "  Must be one of: trio, qtrio"
+        )
 
     return run
 
