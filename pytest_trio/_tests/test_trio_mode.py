@@ -73,9 +73,7 @@ def test_qtrio_mode_and_run_configuration(testdir):
 
 
 def test_qtrio_just_run_configuration(testdir):
-    testdir.makefile(
-        ".ini", pytest="[pytest]\ntrio_run = qtrio\n"
-    )
+    testdir.makefile(".ini", pytest="[pytest]\ntrio_run = qtrio\n")
 
     testdir.makepyfile(qtrio=qtrio_text)
 
