@@ -136,7 +136,13 @@ def test_invalid_trio_run_fails(testdir):
     )
 
 
-def test_multiple_custom_trio_runs_fail(testdir):
+def test_third_party_run_plus_marker_fails(testdir):
+    testdir.makefile(
+        ".ini", pytest=f"[pytest]\ntrio_mode = true\ntrio_run = qtrio\n"
+    )
+
+    testdir.makepyfile(qtrio=qtrio_text)
+
     test_text = """
     import pytest
     import pytest_trio
@@ -144,11 +150,7 @@ def test_multiple_custom_trio_runs_fail(testdir):
     def f():
         pass
 
-    def g():
-        pass
-
     @pytest.mark.trio(run=f)
-    @pytest.mark.trio(run=g)
     async def test():
         pass
     """

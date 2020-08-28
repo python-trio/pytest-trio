@@ -360,8 +360,10 @@ def _trio_test_runner_factory(item, testfunc=None):
             for marker in item.iter_markers("trio")
         }
 
-        if len(runs) == 0:
-            raise RuntimeError("No 'trio' marker found.")
+        if len(runs) == 0:  # pragma: no cover
+            raise RuntimeError(
+                "No 'trio' marker found.  Please report to pytest-trio."
+            )
         elif len(runs) == 1:
             [run] = runs
         else:
