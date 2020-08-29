@@ -383,6 +383,8 @@ Trio-based libraries, then check out `hypothesis-trio
 <https://github.com/python-trio/hypothesis-trio>`__.
 
 
+.. _trio-run-config:
+
 Using alternative Trio runners
 ------------------------------
 
