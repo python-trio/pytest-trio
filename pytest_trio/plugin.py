@@ -17,12 +17,6 @@ from async_generator import (
 # Basic setup
 ################################################################
 
-if sys.version_info >= (3, 6):
-    ORDERED_DICTS = True
-else:
-    # Ordered dict (and **kwargs) not available with Python<3.6
-    ORDERED_DICTS = False
-
 try:
     from hypothesis import register_random
 except ImportError:  # pragma: no cover
@@ -208,7 +202,7 @@ class TrioFixture:
 
         # This is a gross hack. I guess Trio should provide a context=
         # argument to start_soon/start?
-        task = trio.hazmat.current_task()
+        task = trio.lowlevel.current_task()
         assert canary not in task.context
         task.context = contextvars_ctx
         # Force a yield so we pick up the new context

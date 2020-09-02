@@ -73,4 +73,4 @@ def test_sync_function_with_trio_mark(testdir):
 
     result = testdir.runpytest()
 
-    result.assert_outcomes(error=1)
+    result.assert_outcomes(errors=1)
