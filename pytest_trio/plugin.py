@@ -372,7 +372,7 @@ def _trio_test_runner_factory(item, testfunc=None):
                 [run] = runs
             else:
                 runs_string = ', '.join(
-                    sorted(f"{f.__module__}.{f.__name__}" for f in runs)
+                    sorted(f"{f.__module__}.{f.__qualname__}" for f in runs)
                 )
                 raise ValueError(
                     "Not yet able to select from more than one third-party" +
