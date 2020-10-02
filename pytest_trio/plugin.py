@@ -354,29 +354,8 @@ def _trio_test_runner_factory(item, testfunc=None):
         testfunc = item.obj
 
         config_run = choose_run(config=item.config)
-        runs = {
-            marker.kwargs.get('run', config_run)
-            for marker in item.iter_markers("trio")
-        }
-
-        if len(runs) == 0:  # pragma: no cover
-            raise RuntimeError(
-                "No 'trio' marker found.  Please report to pytest-trio."
-            )
-        elif len(runs) == 1:
-            [run] = runs
-        else:
-            runs.discard(trio.run)
-            if len(runs) == 1:
-                [run] = runs
-            else:
-                runs_string = ', '.join(
-                    sorted(f"{f.__module__}.{f.__qualname__}" for f in runs)
-                )
-                raise ValueError(
-                    f"Not yet able to select from more than one third-party"
-                    f" runner.  Found: {runs_string}"
-                )
+        marker = item.get_closest_marker("trio")
+        run = marker.kwargs.get('run', config_run)
 
     if getattr(testfunc, '_trio_test_runner_wrapped', False):
         # We have already wrapped this, perhaps because we combined Hypothesis

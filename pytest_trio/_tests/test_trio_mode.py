@@ -138,32 +138,3 @@ def test_invalid_trio_run_fails(testdir):
             f"*ValueError: {run_name!r} not valid for 'trio_run' config.  Must be one of: *"
         ]
     )
-
-
-def test_third_party_run_plus_marker_fails(testdir):
-    testdir.makefile(
-        ".ini", pytest=f"[pytest]\ntrio_mode = true\ntrio_run = qtrio\n"
-    )
-
-    testdir.makepyfile(qtrio=qtrio_text)
-
-    test_text = """
-    import pytest
-    import pytest_trio
-
-    def f():
-        pass
-
-    @pytest.mark.trio(run=f)
-    async def test():
-        pass
-    """
-    testdir.makepyfile(test_text)
-
-    result = testdir.runpytest()
-    result.assert_outcomes(failed=1)
-    result.stdout.fnmatch_lines(
-        [
-            f"*ValueError: Not yet able to select from more than one third-party runner.  Found: *"
-        ]
-    )
