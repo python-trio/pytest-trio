@@ -44,8 +44,7 @@ def pytest_addoption(parser):
     parser.addini(
         "trio_run",
         "what runner should pytest-trio use? [trio, qtrio]",
-        type="linelist",
-        default=["trio"],
+        default="trio",
     )
 
 
@@ -518,7 +517,7 @@ def automark(items, run=trio.run):
 
 
 def choose_run(config):
-    [run_string] = config.getini("trio_run")
+    run_string = config.getini("trio_run")
 
     if run_string == "trio":
         run = trio.run
