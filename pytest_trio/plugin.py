@@ -374,7 +374,7 @@ def _trio_test_runner_factory(item, testfunc=None):
                     sorted(f"{f.__module__}.{f.__qualname__}" for f in runs)
                 )
                 raise ValueError(
-                    "Not yet able to select from more than one third-party" +
+                    f"Not yet able to select from more than one third-party"
                     f" runner.  Found: {runs_string}"
                 )
 
