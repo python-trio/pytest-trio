@@ -38,6 +38,10 @@ def test_trio_mode(testdir, enable_trio_mode):
     result.assert_outcomes(passed=2, failed=2)
 
 
+# This is faking qtrio due to real qtrio's dependence on either
+# PyQt5 or PySide2.  They are both large and require special
+# handling in CI.  The testing here is able to focus on the
+# pytest-trio features with just this minimal substitute.
 qtrio_text = """
 import trio
 
