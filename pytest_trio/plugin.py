@@ -362,7 +362,6 @@ def _trio_test_runner_factory(item, testfunc=None):
             # no marker found that explicitly specifiers the runner so use config
             run = choose_run(config=item.config)
 
-
     if getattr(testfunc, '_trio_test_runner_wrapped', False):
         # We have already wrapped this, perhaps because we combined Hypothesis
         # with pytest.mark.parametrize
