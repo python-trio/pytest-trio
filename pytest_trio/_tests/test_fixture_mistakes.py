@@ -146,3 +146,28 @@ def test_fixture_cancels_test_but_doesnt_raise(testdir, enable_trio_mode):
 
     result.assert_outcomes(failed=1)
     result.stdout.fnmatch_lines(["*async_fixture*cancelled the test*"])
+
+
+@enable_trio_mode
+def test_too_many_clocks(testdir, enable_trio_mode):
+    enable_trio_mode(testdir)
+
+    testdir.makepyfile(
+        """
+        import pytest
+
+        @pytest.fixture
+        def extra_clock(mock_clock):
+            return mock_clock
+
+        async def test_whatever(mock_clock, extra_clock):
+            pass
+        """
+    )
+
+    result = testdir.runpytest()
+
+    result.assert_outcomes(failed=1)
+    result.stdout.fnmatch_lines(
+        ["*ValueError: too many clocks spoil the broth!*"]
+    )
