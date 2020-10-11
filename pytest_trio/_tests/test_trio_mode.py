@@ -138,3 +138,46 @@ def test_invalid_trio_run_fails(testdir):
             f"*ValueError: {run_name!r} not valid for 'trio_run' config.  Must be one of: *"
         ]
     )
+
+
+def test_closest_explicit_run_wins(testdir):
+    testdir.makefile(
+        ".ini", pytest=f"[pytest]\ntrio_mode = true\ntrio_run = trio\n"
+    )
+    testdir.makepyfile(qtrio=qtrio_text)
+
+    test_text = """
+    import pytest
+    import pytest_trio
+    import qtrio
+
+    @pytest.mark.trio(run='should be ignored')
+    @pytest.mark.trio(run=qtrio.run)
+    async def test():
+        assert qtrio.fake_used
+    """
+    testdir.makepyfile(test_text)
+
+    result = testdir.runpytest()
+    result.assert_outcomes(passed=1)
+
+
+def test_ini_run_wins_with_blank_marker(testdir):
+    testdir.makefile(
+        ".ini", pytest=f"[pytest]\ntrio_mode = true\ntrio_run = qtrio\n"
+    )
+    testdir.makepyfile(qtrio=qtrio_text)
+
+    test_text = """
+    import pytest
+    import pytest_trio
+    import qtrio
+
+    @pytest.mark.trio
+    async def test():
+        assert qtrio.fake_used
+    """
+    testdir.makepyfile(test_text)
+
+    result = testdir.runpytest()
+    result.assert_outcomes(passed=1)

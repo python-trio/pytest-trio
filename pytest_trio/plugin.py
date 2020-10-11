@@ -353,9 +353,15 @@ def _trio_test_runner_factory(item, testfunc=None):
     else:
         testfunc = item.obj
 
-        config_run = choose_run(config=item.config)
-        marker = item.get_closest_marker("trio")
-        run = marker.kwargs.get('run', config_run)
+        for marker in item.iter_markers("trio"):
+            maybe_run = marker.kwargs.get('run')
+            if maybe_run is not None:
+                run = maybe_run
+                break
+        else:
+            # no marker found that explicitly specifiers the runner so use config
+            run = choose_run(config=item.config)
+
 
     if getattr(testfunc, '_trio_test_runner_wrapped', False):
         # We have already wrapped this, perhaps because we combined Hypothesis
