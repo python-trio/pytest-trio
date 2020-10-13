@@ -1,0 +1,1 @@
+Support added for :ref:`alternative Trio run functions <trio-run-config>` via the ``trio_run`` configuration variable and ``@pytest.mark.trio(run=...)``.  Presently supports Trio and QTrio.
