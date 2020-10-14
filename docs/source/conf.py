@@ -42,6 +42,14 @@ nitpick_ignore = [
     ("py:obj", "bytes-like"),
 ]
 
+# XX hack the RTD theme until
+#   https://github.com/rtfd/sphinx_rtd_theme/pull/382
+# is shipped (should be in the release after 0.2.4)
+# ...note that this has since grown to contain a bunch of other CSS hacks too
+# though.
+def setup(app):
+    app.add_css_file("hackrtd.css")
+
 # -- General configuration ------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
