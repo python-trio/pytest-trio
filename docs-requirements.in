@@ -5,3 +5,12 @@ sphinxcontrib-trio
 # Workaround for this weird issue:
 # https://travis-ci.org/python-trio/pytest-trio/jobs/407495415
 attrs >= 17.4.0
+# != 19.9.0rc1 for https://github.com/twisted/towncrier/issues/180
+towncrier != 19.9.0rc1
+
+# pytest-trio's own dependencies
+trio >= 0.15.0
+async_generator >= 1.9
+outcome
+# For node.get_closest_marker
+pytest >= 3.6

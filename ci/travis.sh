@@ -43,7 +43,7 @@ python setup.py sdist --formats=zip
 pip install dist/*.zip
 
 if [ "$CHECK_DOCS" = "1" ]; then
-    pip install -Ur ci/rtd-requirements.txt
+    pip install -Ur docs-requirements.txt
     cd docs
     # -n (nit-picky): warn on missing references
     # -W: turn warnings into errors
