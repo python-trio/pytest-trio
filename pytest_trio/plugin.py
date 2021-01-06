@@ -1,4 +1,5 @@
 """pytest-trio implementation."""
+from functools import wraps, partial
 import sys
 from traceback import format_exception
 from collections.abc import Coroutine, Generator
@@ -7,7 +8,8 @@ import contextvars
 import outcome
 import pytest
 import trio
-from trio.testing import MockClock, trio_test
+from trio.abc import Clock, Instrument
+from trio.testing import MockClock
 from async_generator import (
     async_generator, yield_, asynccontextmanager, isasyncgen,
     isasyncgenfunction
@@ -38,6 +40,11 @@ def pytest_addoption(parser):
         "should pytest-trio handle all async functions?",
         type="bool",
         default=False,
+    )
+    parser.addini(
+        "trio_run",
+        "what runner should pytest-trio use? [trio, qtrio]",
+        default="trio",
     )
 
 
@@ -307,8 +314,53 @@ class TrioFixture:
                     raise RuntimeError("too many yields in fixture")
 
 
+def _trio_test(run):
+    """Use:
+        @trio_test
+        async def test_whatever():
+            await ...
+
+    Also: if a pytest fixture is passed in that subclasses the ``Clock`` abc, then
+    that clock is passed to ``trio.run()``.
+    """
+
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(**kwargs):
+            __tracebackhide__ = True
+            clocks = [c for c in kwargs.values() if isinstance(c, Clock)]
+            if not clocks:
+                clock = None
+            elif len(clocks) == 1:
+                clock = clocks[0]
+            else:
+                raise ValueError("too many clocks spoil the broth!")
+            instruments = [
+                i for i in kwargs.values() if isinstance(i, Instrument)
+            ]
+            return run(
+                partial(fn, **kwargs), clock=clock, instruments=instruments
+            )
+
+        return wrapper
+
+    return decorator
+
+
 def _trio_test_runner_factory(item, testfunc=None):
-    testfunc = testfunc or item.obj
+    if testfunc:
+        run = trio.run
+    else:
+        testfunc = item.obj
+
+        for marker in item.iter_markers("trio"):
+            maybe_run = marker.kwargs.get('run')
+            if maybe_run is not None:
+                run = maybe_run
+                break
+        else:
+            # no marker found that explicitly specifiers the runner so use config
+            run = choose_run(config=item.config)
 
     if getattr(testfunc, '_trio_test_runner_wrapped', False):
         # We have already wrapped this, perhaps because we combined Hypothesis
@@ -320,7 +372,7 @@ def _trio_test_runner_factory(item, testfunc=None):
             'test function `%r` is marked trio but is not async' % item
         )
 
-    @trio_test
+    @_trio_test(run=run)
     async def _bootstrap_fixtures_and_run_test(**kwargs):
         __tracebackhide__ = True
 
@@ -438,19 +490,36 @@ def pytest_fixture_setup(fixturedef, request):
 ################################################################
 
 
-def automark(items):
+def automark(items, run=trio.run):
     for item in items:
         if hasattr(item.obj, "hypothesis"):
             test_func = item.obj.hypothesis.inner_test
         else:
             test_func = item.obj
         if iscoroutinefunction(test_func):
-            item.add_marker(pytest.mark.trio)
+            item.add_marker(pytest.mark.trio(run=run))
+
+
+def choose_run(config):
+    run_string = config.getini("trio_run")
+
+    if run_string == "trio":
+        run = trio.run
+    elif run_string == "qtrio":
+        import qtrio
+        run = qtrio.run
+    else:
+        raise ValueError(
+            f"{run_string!r} not valid for 'trio_run' config." +
+            "  Must be one of: trio, qtrio"
+        )
+
+    return run
 
 
 def pytest_collection_modifyitems(config, items):
     if config.getini("trio_mode"):
-        automark(items)
+        automark(items, run=choose_run(config=config))
 
 
 ################################################################

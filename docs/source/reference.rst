@@ -381,3 +381,42 @@ write `stateful tests
 <https://hypothesis.readthedocs.io/en/latest/stateful.html>`__ for
 Trio-based libraries, then check out `hypothesis-trio
 <https://github.com/python-trio/hypothesis-trio>`__.
+
+
+.. _trio-run-config:
+
+Using alternative Trio runners
+------------------------------
+
+If you are working with a library that provides integration with Trio,
+such as via :ref:`guest mode <trio:guest-mode>`, it can be used with
+pytest-trio as well.  Setting ``trio_run`` in the pytest configuration
+makes your choice the global default for both tests explicitly marked
+with ``@pytest.mark.trio`` and those automatically marked by Trio mode.
+``trio_run`` presently supports ``trio`` and ``qtrio``.
+
+.. code-block:: ini
+
+   # pytest.ini
+   [pytest]
+   trio_mode = true
+   trio_run = qtrio
+
+.. code-block:: python
+
+   import pytest
+
+   @pytest.mark.trio
+   async def test():
+       assert True
+
+If you want more granular control or need to use a specific function,
+it can be passed directly to the marker.
+
+.. code-block:: python
+
+   import pytest
+
+   @pytest.mark.trio(run=qtrio.run)
+   async def test():
+       assert True
