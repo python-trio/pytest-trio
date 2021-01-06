@@ -1,3 +1,3 @@
-pytest >= 6.0.0  # https://github.com/python-trio/pytest-trio/pull/98#issuecomment-678699693
-pytest-cov
-hypothesis>=3.64
+pytest==6.1.2
+pytest-cov==2.10.1
+hypothesis==5.47.0
