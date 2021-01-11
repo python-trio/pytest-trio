@@ -13,13 +13,9 @@ pytest-trio
    :target: https://pypi.org/project/pytest-trio
    :alt: Latest PyPi version
 
-.. image:: https://travis-ci.org/python-trio/pytest-trio.svg?branch=master
-   :target: https://travis-ci.org/python-trio/pytest-trio
-   :alt: Automated test status (Linux and MacOS)
-
-.. image:: https://ci.appveyor.com/api/projects/status/aq0pklx7hanx031x?svg=true
-   :target: https://ci.appveyor.com/project/touilleMan/pytest-trio
-   :alt: Automated test status (Windows)
+.. image:: https://github.com/python-trio/pytest-trio/workflows/CI/badge.svg?branch=master
+   :target: https://github.com/python-trio/pytest-trio/actions
+   :alt: Automated test status
 
 .. image:: https://codecov.io/gh/python-trio/pytest-trio/branch/master/graph/badge.svg
    :target: https://codecov.io/gh/python-trio/pytest-trio
