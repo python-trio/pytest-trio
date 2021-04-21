@@ -4,46 +4,109 @@
 #
 #    pip-compile --output-file=docs-requirements.txt docs-requirements.in
 #
-alabaster==0.7.12         # via sphinx
-async-generator==1.10     # via -r docs-requirements.in, trio
-attrs==20.2.0             # via -r docs-requirements.in, outcome, pytest, trio
-babel==2.8.0              # via sphinx
-certifi==2020.6.20        # via requests
-chardet==3.0.4            # via requests
-click==7.1.2              # via towncrier
-docutils==0.16            # via sphinx
-idna==2.10                # via requests, trio
-imagesize==1.2.0          # via sphinx
-incremental==17.5.0       # via towncrier
-iniconfig==1.0.1          # via pytest
-jinja2==2.11.2            # via sphinx, towncrier
-markupsafe==1.1.1         # via jinja2
-outcome==1.0.1            # via -r docs-requirements.in, trio
-packaging==20.4           # via pytest, sphinx
-pluggy==0.13.1            # via pytest
-py==1.9.0                 # via pytest
-pygments==2.7.1           # via sphinx
-pyparsing==2.4.7          # via packaging
-pytest==6.1.1             # via -r docs-requirements.in
-pytz==2020.1              # via babel
-requests==2.24.0          # via sphinx
-six==1.15.0               # via packaging
-sniffio==1.2.0            # via trio
-snowballstemmer==2.0.0    # via sphinx
-sortedcontainers==2.2.2   # via trio
-sphinx-rtd-theme==0.5.0   # via -r docs-requirements.in
-sphinx==3.2.1             # via -r docs-requirements.in, sphinx-rtd-theme, sphinxcontrib-trio
-sphinxcontrib-applehelp==1.0.2  # via sphinx
-sphinxcontrib-devhelp==1.0.2  # via sphinx
-sphinxcontrib-htmlhelp==1.0.3  # via sphinx
-sphinxcontrib-jsmath==1.0.1  # via sphinx
-sphinxcontrib-qthelp==1.0.3  # via sphinx
-sphinxcontrib-serializinghtml==1.1.4  # via sphinx
-sphinxcontrib-trio==1.1.2  # via -r docs-requirements.in
-toml==0.10.1              # via pytest, towncrier
-towncrier==19.2.0         # via -r docs-requirements.in
-trio==0.17.0              # via -r docs-requirements.in
-urllib3==1.25.10          # via requests
+alabaster==0.7.12
+    # via sphinx
+async-generator==1.10
+    # via
+    #   -r docs-requirements.in
+    #   trio
+attrs==20.3.0
+    # via
+    #   -r docs-requirements.in
+    #   outcome
+    #   pytest
+    #   trio
+babel==2.9.0
+    # via sphinx
+certifi==2020.12.5
+    # via requests
+chardet==4.0.0
+    # via requests
+click-default-group==1.2.2
+    # via towncrier
+click==7.1.2
+    # via
+    #   click-default-group
+    #   towncrier
+docutils==0.16
+    # via
+    #   sphinx
+    #   sphinx-rtd-theme
+idna==2.10
+    # via
+    #   requests
+    #   trio
+imagesize==1.2.0
+    # via sphinx
+incremental==21.3.0
+    # via towncrier
+iniconfig==1.1.1
+    # via pytest
+jinja2==2.11.3
+    # via
+    #   sphinx
+    #   towncrier
+markupsafe==1.1.1
+    # via jinja2
+outcome==1.1.0
+    # via
+    #   -r docs-requirements.in
+    #   trio
+packaging==20.9
+    # via
+    #   pytest
+    #   sphinx
+pluggy==0.13.1
+    # via pytest
+py==1.10.0
+    # via pytest
+pygments==2.8.1
+    # via sphinx
+pyparsing==2.4.7
+    # via packaging
+pytest==6.2.3
+    # via -r docs-requirements.in
+pytz==2021.1
+    # via babel
+requests==2.25.1
+    # via sphinx
+sniffio==1.2.0
+    # via trio
+snowballstemmer==2.1.0
+    # via sphinx
+sortedcontainers==2.3.0
+    # via trio
+sphinx-rtd-theme==0.5.2
+    # via -r docs-requirements.in
+sphinx==3.5.4
+    # via
+    #   -r docs-requirements.in
+    #   sphinx-rtd-theme
+    #   sphinxcontrib-trio
+sphinxcontrib-applehelp==1.0.2
+    # via sphinx
+sphinxcontrib-devhelp==1.0.2
+    # via sphinx
+sphinxcontrib-htmlhelp==1.0.3
+    # via sphinx
+sphinxcontrib-jsmath==1.0.1
+    # via sphinx
+sphinxcontrib-qthelp==1.0.3
+    # via sphinx
+sphinxcontrib-serializinghtml==1.1.4
+    # via sphinx
+sphinxcontrib-trio==1.1.2
+    # via -r docs-requirements.in
+toml==0.10.2
+    # via
+    #   pytest
+    #   towncrier
+towncrier==21.3.0
+    # via -r docs-requirements.in
+trio==0.18.0
+    # via -r docs-requirements.in
+urllib3==1.26.4
+    # via requests
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools
