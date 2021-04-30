@@ -116,9 +116,9 @@ def test_async_within_sync_fixture(testdir):
 
 
 # In pytest, ERROR status occurs when an exception is raised in fixture code.
-# The trouble is our async fixtures must be run whithin a trio context, hence
+# The trouble is our async fixtures must be run within a trio context, hence
 # they are actually run just before the test, providing no way to make the
-# difference between an exception comming from the real test or from an
+# difference between an exception coming from the real test or from an
 # async fixture...
 @pytest.mark.xfail(reason='Not implemented yet')
 def test_raise_in_async_fixture_cause_pytest_error(testdir):
@@ -133,7 +133,7 @@ def test_raise_in_async_fixture_cause_pytest_error(testdir):
 
         @pytest.mark.trio
         async def test_base(fix1):
-            pass  # Crash should have occures before arriving here
+            pass  # Crash should have occurs before arriving here
     """
     )
 
