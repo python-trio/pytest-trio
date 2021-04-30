@@ -133,7 +133,7 @@ def test_raise_in_async_fixture_cause_pytest_error(testdir):
 
         @pytest.mark.trio
         async def test_base(fix1):
-            pass  # Crash should have occurs before arriving here
+            pass  # Crash should have occurred before arriving here
     """
     )
 
