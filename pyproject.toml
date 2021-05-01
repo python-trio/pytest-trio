@@ -5,3 +5,10 @@ directory = "newsfragments"
 title_format = "pytest-trio {version} ({project_date})"
 underlines = ["-", "~", "^"]
 issue_format = "`#{issue} <https://github.com/python-trio/pytest-trio/issues/{issue}>`__"
+
+[build-system]
+requires = [
+    "setuptools >= 50.0.3",
+    "wheel >= 0.35.1",
+]
+build-backend = "setuptools.build_meta"
