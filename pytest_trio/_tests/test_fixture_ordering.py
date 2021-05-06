@@ -154,13 +154,15 @@ def test_error_collection(testdir):
 
         @trio_fixture
         async def crash_nongen():
-            await trio.sleep(2)
+            with trio.CancelScope(shield=True):
+                await trio.sleep(2)
             raise RuntimeError("crash_nongen".upper())
 
         @trio_fixture
         @async_generator
         async def crash_early_agen():
-            await trio.sleep(2)
+            with trio.CancelScope(shield=True):
+                await trio.sleep(2)
             raise RuntimeError("crash_early_agen".upper())
             await yield_()
 
@@ -330,3 +332,43 @@ def test_complex_cancel_interaction_regression(testdir):
     result.stdout.fnmatch_lines_random([
         "*OOPS*",
     ])
+
+
+# Makes sure that
+# See https://github.com/python-trio/pytest-trio/issues/120
+def test_fixtures_crash_and_hang_concurrently(testdir):
+    testdir.makepyfile(
+        """
+        import trio
+        import pytest
+
+
+        @pytest.fixture
+        async def hanging_fixture():
+            print("hanging_fixture:start")
+            await trio.Event().wait()
+            yield
+            print("hanging_fixture:end")
+
+
+        @pytest.fixture
+        async def exploding_fixture():
+            print("exploding_fixture:start")
+            raise Exception
+            yield
+            print("exploding_fixture:end")
+
+
+        @pytest.mark.trio
+        async def test_fails_right_away(exploding_fixture):
+            ...
+
+
+        @pytest.mark.trio
+        async def test_fails_needs_some_scopes(exploding_fixture, hanging_fixture):
+            ...
+        """
+    )
+
+    result = testdir.runpytest()
+    result.assert_outcomes(passed=0, failed=2)

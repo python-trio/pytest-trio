@@ -1,0 +1,3 @@
+Fix an issue where if two fixtures are being set up concurrently, and
+one crashes and the other hangs, then the test as a whole would hang,
+rather than being cancelled and unwound after the crash.
