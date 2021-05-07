@@ -5,8 +5,9 @@ sphinxcontrib-trio
 # Workaround for this weird issue:
 # https://travis-ci.org/python-trio/pytest-trio/jobs/407495415
 attrs >= 17.4.0
-# != 19.9.0rc1 for https://github.com/twisted/towncrier/issues/180
-towncrier != 19.9.0rc1
+# != 19.9.0 for https://github.com/twisted/towncrier/issues/180
+# != 21.3.0 for https://github.com/twisted/towncrier/issues/346
+towncrier != 19.9.0,!= 21.3.0
 
 # pytest-trio's own dependencies
 trio >= 0.15.0
