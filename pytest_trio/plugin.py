@@ -121,11 +121,12 @@ def pytest_exception_interact(node, call, report):
 # If a fixture crashes, whether during setup, teardown, or in a background
 # task at any other point, then we mark the whole test run as "crashed". When
 # a run is "crashed", two things happen: (1) if any fixtures or the test
-# itself haven't started yet, then we don't start them. (2) if the test is
-# running, we cancel it. That's all. In particular, if a fixture has a
-# background crash, we don't propagate that to any other fixtures, we still
-# follow the normal teardown sequence, and so on – but since the test is
-# cancelled, the teardown sequence should start immediately.
+# itself haven't started yet, then we don't start them, and treat them as if
+# they've already exited. (2) if the test is running, we cancel it. That's
+# all. In particular, if a fixture has a background crash, we don't propagate
+# that to any other fixtures, we still follow the normal teardown sequence,
+# and so on – but since the test is cancelled, the teardown sequence should
+# start immediately.
 
 canary = contextvars.ContextVar("pytest-trio canary")
 
@@ -133,7 +134,12 @@ canary = contextvars.ContextVar("pytest-trio canary")
 class TrioTestContext:
     def __init__(self):
         self.crashed = False
-        self.test_cancel_scope = None
+        # This holds cancel scopes for whatever setup steps are currently
+        # running -- initially it's the fixtures that are in the middle of
+        # evaluating themselves, and then once fixtures are set up it's the
+        # test itself. Basically, at any given moment, it's the stuff we need
+        # to cancel if we want to start tearing down our fixture DAG.
+        self.active_cancel_scopes = set()
         self.fixtures_with_errors = set()
         self.fixtures_with_cancel = set()
         self.error_list = []
@@ -145,8 +151,8 @@ class TrioTestContext:
             self.error_list.append(exc)
             self.fixtures_with_errors.add(fixture)
         self.crashed = True
-        if self.test_cancel_scope is not None:
-            self.test_cancel_scope.cancel()
+        for cscope in self.active_cancel_scopes:
+            cscope.cancel()
 
 
 class TrioFixture:
@@ -240,16 +246,17 @@ class TrioFixture:
                 return
 
             # Run actual fixture setup step
+            # If another fixture crashes while we're in the middle of setting
+            # up, we want to be cancelled immediately, so we'll save an
+            # encompassing cancel scope where self._crash can find it.
+            test_ctx.active_cancel_scopes.add(nursery_fixture.cancel_scope)
             if self._is_test:
-                # Tests are exactly like fixtures, except that they (1) have
-                # to be regular async functions, (2) if there's a crash, we
-                # should cancel them.
+                # Tests are exactly like fixtures, except that they to be
+                # regular async functions.
                 assert not self.user_done_events
                 func_value = None
-                with trio.CancelScope() as cancel_scope:
-                    test_ctx.test_cancel_scope = cancel_scope
-                    assert not test_ctx.crashed
-                    await self._func(**resolved_kwargs)
+                assert not test_ctx.crashed
+                await self._func(**resolved_kwargs)
             else:
                 func_value = self._func(**resolved_kwargs)
                 if isinstance(func_value, Coroutine):
@@ -261,8 +268,16 @@ class TrioFixture:
                 else:
                     # Regular synchronous function
                     self.fixture_value = func_value
+            # Now that we're done setting up, we don't want crashes to cancel
+            # us immediately; instead we want them to cancel our downstream
+            # dependents, and then eventually let us clean up normally. So
+            # remove this from the set of cancel scopes affected by self._crash.
+            test_ctx.active_cancel_scopes.remove(nursery_fixture.cancel_scope)
 
-            # Notify our users that self.fixture_value is ready
+            # self.fixture_value is ready, so notify users that they can
+            # continue. (Or, maybe we crashed and were cancelled, in which
+            # case our users will check test_ctx.crashed and immediately exit,
+            # which is fine too.)
             self.setup_done.set()
 
             # Wait for users to be finished
