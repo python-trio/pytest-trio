@@ -274,7 +274,6 @@ class TrioFixture:
             # remove this from the set of cancel scopes affected by self._crash.
             test_ctx.active_cancel_scopes.remove(nursery_fixture.cancel_scope)
 
-
             # self.fixture_value is ready, so notify users that they can
             # continue. (Or, maybe we crashed and were cancelled, in which
             # case our users will check test_ctx.crashed and immediately exit,
