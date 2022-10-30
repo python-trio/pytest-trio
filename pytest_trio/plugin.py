@@ -343,13 +343,13 @@ def _trio_test(run):
         @wraps(fn)
         def wrapper(**kwargs):
             __tracebackhide__ = True
-            clocks = [c for c in kwargs.values() if isinstance(c, Clock)]
+            clocks = {k: c for k, c in kwargs.items() if isinstance(c, Clock)}
             if not clocks:
                 clock = None
             elif len(clocks) == 1:
-                clock = clocks[0]
+                clock = list(clocks.values())[0]
             else:
-                raise ValueError("too many clocks spoil the broth!")
+                raise ValueError(f"Expected at most one Clock in kwargs, got {clocks!r}")
             instruments = [
                 i for i in kwargs.values() if isinstance(i, Instrument)
             ]
