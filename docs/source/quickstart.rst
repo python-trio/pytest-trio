@@ -93,17 +93,6 @@ And we're done! Let's try running pytest again:
    ============================== FAILURES ==============================
    __________________________ test_should_fail __________________________
 
-   value = <trio.Nursery object at 0x7f97b21fafa0>
-
-       async def yield_(value=None):
-   >       return await _yield_(value)
-
-   venv/lib/python3.8/site-packages/async_generator/_impl.py:106:
-   _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-   venv/lib/python3.8/site-packages/async_generator/_impl.py:99: in _yield_
-       return (yield _wrap(value))
-   _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-
        async def test_should_fail():
    >       assert False
    E       assert False
@@ -178,13 +167,6 @@ regular pytest fixture::
 
        # Teardown code, executed after the test is done
        await connection.execute("ROLLBACK")
-
-If you need to support Python 3.5, which doesn't allow ``yield``
-inside an ``async def`` function, then you can define async fixtures
-using the `async_generator
-<https://async-generator.readthedocs.io/en/latest/reference.html>`__
-library - just make sure to put the ``@pytest.fixture`` *above* the
-``@async_generator``.
 
 
 .. _server-fixture-example:

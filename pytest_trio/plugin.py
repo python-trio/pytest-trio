@@ -1,22 +1,15 @@
 """pytest-trio implementation."""
 from functools import wraps, partial
-import sys
 from traceback import format_exception
 from collections.abc import Coroutine, Generator
-from inspect import iscoroutinefunction, isgeneratorfunction
+from contextlib import asynccontextmanager
+from inspect import isasyncgen, isasyncgenfunction, iscoroutinefunction
 import contextvars
 import outcome
 import pytest
 import trio
 from trio.abc import Clock, Instrument
 from trio.testing import MockClock
-from async_generator import (
-    async_generator,
-    yield_,
-    asynccontextmanager,
-    isasyncgen,
-    isasyncgenfunction,
-)
 
 ################################################################
 # Basic setup
@@ -197,13 +190,12 @@ class TrioFixture:
         return deps
 
     @asynccontextmanager
-    @async_generator
     async def _fixture_manager(self, test_ctx):
         __tracebackhide__ = True
         try:
             async with trio.open_nursery() as nursery_fixture:
                 try:
-                    await yield_(nursery_fixture)
+                    yield nursery_fixture
                 finally:
                     nursery_fixture.cancel_scope.cancel()
         except BaseException as exc:

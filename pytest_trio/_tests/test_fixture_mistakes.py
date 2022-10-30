@@ -123,14 +123,12 @@ def test_fixture_cancels_test_but_doesnt_raise(testdir, enable_trio_mode):
         """
         import pytest
         import trio
-        from async_generator import async_generator, yield_
 
         @pytest.fixture
-        @async_generator
         async def async_fixture():
             with trio.CancelScope() as cscope:
                 cscope.cancel()
-                await yield_()
+                yield
 
 
         async def test_whatever(async_fixture):
@@ -164,4 +162,6 @@ def test_too_many_clocks(testdir, enable_trio_mode):
     result = testdir.runpytest()
 
     result.assert_outcomes(failed=1)
-    result.stdout.fnmatch_lines(["*ValueError: too many clocks spoil the broth!*"])
+    result.stdout.fnmatch_lines(
+        ["*ValueError: Expected at most one Clock in kwargs, got *"]
+    )
