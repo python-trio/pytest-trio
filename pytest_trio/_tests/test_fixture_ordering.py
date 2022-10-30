@@ -283,7 +283,9 @@ def test_background_crash_cancellation_propagation(bgmode, testdir):
                 "userfix": float("inf"),
             }
             assert final_time == 1
-        """.replace("CRASHYFIX_HERE", crashyfix)
+        """.replace(
+            "CRASHYFIX_HERE", crashyfix
+        )
     )
 
     result = testdir.runpytest()
@@ -329,9 +331,7 @@ def test_complex_cancel_interaction_regression(testdir):
 
     result = testdir.runpytest()
     result.assert_outcomes(passed=0, failed=1)
-    result.stdout.fnmatch_lines_random([
-        "*OOPS*",
-    ])
+    result.stdout.fnmatch_lines_random(["*OOPS*"])
 
 
 # Makes sure that

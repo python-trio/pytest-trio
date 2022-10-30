@@ -11,8 +11,11 @@ import trio
 from trio.abc import Clock, Instrument
 from trio.testing import MockClock
 from async_generator import (
-    async_generator, yield_, asynccontextmanager, isasyncgen,
-    isasyncgenfunction
+    async_generator,
+    yield_,
+    asynccontextmanager,
+    isasyncgen,
+    isasyncgenfunction,
 )
 
 ################################################################
@@ -51,9 +54,8 @@ def pytest_addoption(parser):
 def pytest_configure(config):
     # So that it shows up in 'pytest --markers' output:
     config.addinivalue_line(
-        "markers", "trio: "
-        "mark the test as an async trio test; "
-        "it will be run using trio.run"
+        "markers",
+        "trio: mark the test as an async trio test; it will be run using trio.run",
     )
 
 
@@ -61,7 +63,7 @@ def pytest_configure(config):
 def pytest_exception_interact(node, call, report):
     if issubclass(call.excinfo.type, trio.MultiError):
         # TODO: not really elegant (pytest cannot output color with this hack)
-        report.longrepr = ''.join(format_exception(*call.excinfo._excinfo))
+        report.longrepr = "".join(format_exception(*call.excinfo._excinfo))
 
 
 ################################################################
@@ -349,13 +351,11 @@ def _trio_test(run):
             elif len(clocks) == 1:
                 clock = list(clocks.values())[0]
             else:
-                raise ValueError(f"Expected at most one Clock in kwargs, got {clocks!r}")
-            instruments = [
-                i for i in kwargs.values() if isinstance(i, Instrument)
-            ]
-            return run(
-                partial(fn, **kwargs), clock=clock, instruments=instruments
-            )
+                raise ValueError(
+                    f"Expected at most one Clock in kwargs, got {clocks!r}"
+                )
+            instruments = [i for i in kwargs.values() if isinstance(i, Instrument)]
+            return run(partial(fn, **kwargs), clock=clock, instruments=instruments)
 
         return wrapper
 
@@ -369,7 +369,7 @@ def _trio_test_runner_factory(item, testfunc=None):
         testfunc = item.obj
 
         for marker in item.iter_markers("trio"):
-            maybe_run = marker.kwargs.get('run')
+            maybe_run = marker.kwargs.get("run")
             if maybe_run is not None:
                 run = maybe_run
                 break
@@ -377,15 +377,13 @@ def _trio_test_runner_factory(item, testfunc=None):
             # no marker found that explicitly specifiers the runner so use config
             run = choose_run(config=item.config)
 
-    if getattr(testfunc, '_trio_test_runner_wrapped', False):
+    if getattr(testfunc, "_trio_test_runner_wrapped", False):
         # We have already wrapped this, perhaps because we combined Hypothesis
         # with pytest.mark.parametrize
         return testfunc
 
     if not iscoroutinefunction(testfunc):
-        pytest.fail(
-            'test function `%r` is marked trio but is not async' % item
-        )
+        pytest.fail("test function `%r` is marked trio but is not async" % item)
 
     @_trio_test(run=run)
     async def _bootstrap_fixtures_and_run_test(**kwargs):
@@ -393,10 +391,7 @@ def _trio_test_runner_factory(item, testfunc=None):
 
         test_ctx = TrioTestContext()
         test = TrioFixture(
-            "<test {!r}>".format(testfunc.__name__),
-            testfunc,
-            kwargs,
-            is_test=True
+            "<test {!r}>".format(testfunc.__name__), testfunc, kwargs, is_test=True
         )
 
         contextvars_ctx = contextvars.copy_context()
@@ -435,16 +430,15 @@ def _trio_test_runner_factory(item, testfunc=None):
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_call(item):
     if item.get_closest_marker("trio") is not None:
-        if hasattr(item.obj, 'hypothesis'):
+        if hasattr(item.obj, "hypothesis"):
             # If it's a Hypothesis test, we go in a layer.
             item.obj.hypothesis.inner_test = _trio_test_runner_factory(
                 item, item.obj.hypothesis.inner_test
             )
-        elif getattr(item.obj, 'is_hypothesis_test',
-                     False):  # pragma: no cover
+        elif getattr(item.obj, "is_hypothesis_test", False):  # pragma: no cover
             pytest.fail(
-                'test function `%r` is using Hypothesis, but pytest-trio '
-                'only works with Hypothesis 3.64.0 or later.' % item
+                "test function `%r` is using Hypothesis, but pytest-trio "
+                "only works with Hypothesis 3.64.0 or later." % item
             )
         else:
             item.obj = _trio_test_runner_factory(item)
@@ -463,8 +457,7 @@ def trio_fixture(func):
 def _is_trio_fixture(func, coerce_async, kwargs):
     if getattr(func, "_force_trio_fixture", False):
         return True
-    if (coerce_async and
-        (iscoroutinefunction(func) or isasyncgenfunction(func))):
+    if coerce_async and (iscoroutinefunction(func) or isasyncgenfunction(func)):
         return True
     if any(isinstance(value, TrioFixture) for value in kwargs.values()):
         return True
@@ -472,16 +465,13 @@ def _is_trio_fixture(func, coerce_async, kwargs):
 
 
 def handle_fixture(fixturedef, request, force_trio_mode):
-    is_trio_test = (request.node.get_closest_marker("trio") is not None)
+    is_trio_test = request.node.get_closest_marker("trio") is not None
     if force_trio_mode:
         is_trio_mode = True
     else:
         is_trio_mode = request.node.config.getini("trio_mode")
-    coerce_async = (is_trio_test or is_trio_mode)
-    kwargs = {
-        name: request.getfixturevalue(name)
-        for name in fixturedef.argnames
-    }
+    coerce_async = is_trio_test or is_trio_mode
+    kwargs = {name: request.getfixturevalue(name) for name in fixturedef.argnames}
     if _is_trio_fixture(fixturedef.func, coerce_async, kwargs):
         if request.scope != "function":
             raise RuntimeError("Trio fixtures must be function-scope")
@@ -522,11 +512,12 @@ def choose_run(config):
         run = trio.run
     elif run_string == "qtrio":
         import qtrio
+
         run = qtrio.run
     else:
         raise ValueError(
-            f"{run_string!r} not valid for 'trio_run' config." +
-            "  Must be one of: trio, qtrio"
+            f"{run_string!r} not valid for 'trio_run' config."
+            + "  Must be one of: trio, qtrio"
         )
 
     return run

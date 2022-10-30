@@ -17,6 +17,6 @@ async def server(nursery):
 @pytest.mark.trio
 async def test_try(server):
     stream = await trio.testing.open_stream_to_socket_listener(server)
-    await stream.send_all(b'ping')
+    await stream.send_all(b"ping")
     rep = await stream.receive_some(4)
-    assert rep == b'ping'
+    assert rep == b"ping"

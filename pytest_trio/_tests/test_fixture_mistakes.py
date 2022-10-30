@@ -35,9 +35,7 @@ def test_trio_fixture_with_non_trio_test(testdir):
     result = testdir.runpytest()
 
     result.assert_outcomes(passed=1, errors=2)
-    result.stdout.fnmatch_lines(
-        ["*: Trio fixtures can only be used by Trio tests*"]
-    )
+    result.stdout.fnmatch_lines(["*: Trio fixtures can only be used by Trio tests*"])
 
 
 def test_trio_fixture_with_wrong_scope_without_trio_mode(testdir):
@@ -114,9 +112,7 @@ def test_async_fixture_with_sync_test_in_trio_mode(testdir, enable_trio_mode):
     result = testdir.runpytest()
 
     result.assert_outcomes(errors=1)
-    result.stdout.fnmatch_lines(
-        ["*: Trio fixtures can only be used by Trio tests*"]
-    )
+    result.stdout.fnmatch_lines(["*: Trio fixtures can only be used by Trio tests*"])
 
 
 @enable_trio_mode
@@ -168,6 +164,4 @@ def test_too_many_clocks(testdir, enable_trio_mode):
     result = testdir.runpytest()
 
     result.assert_outcomes(failed=1)
-    result.stdout.fnmatch_lines(
-        ["*ValueError: too many clocks spoil the broth!*"]
-    )
+    result.stdout.fnmatch_lines(["*ValueError: too many clocks spoil the broth!*"])

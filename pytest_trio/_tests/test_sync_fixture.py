@@ -3,12 +3,12 @@ import pytest
 
 @pytest.fixture
 def sync_fix():
-    return 'sync_fix'
+    return "sync_fix"
 
 
 @pytest.mark.trio
 async def test_single_sync_fixture(sync_fix):
-    assert sync_fix == 'sync_fix'
+    assert sync_fix == "sync_fix"
 
 
 def test_single_yield_fixture(testdir):
@@ -139,6 +139,4 @@ def test_sync_yield_fixture_crashed_teardown_allow_other_teardowns(testdir):
     result = testdir.runpytest()
 
     result.assert_outcomes(failed=1, passed=2)
-    result.stdout.re_match_lines(
-        [r'E\W+RuntimeError: Crash during fixture teardown']
-    )
+    result.stdout.re_match_lines([r"E\W+RuntimeError: Crash during fixture teardown"])

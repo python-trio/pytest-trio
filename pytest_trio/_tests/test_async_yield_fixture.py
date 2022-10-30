@@ -3,14 +3,14 @@ import pytest
 import re
 
 
-@pytest.fixture(params=['Python>=36', 'async_generator'])
+@pytest.fixture(params=["Python>=36", "async_generator"])
 def async_yield_implementation(request):
-    if request.param == 'Python>=36':
+    if request.param == "Python>=36":
 
         def patch_code(code):
             # Convert code to use Python>=3.6 builtin async generator
-            code = re.sub(r'(?m)^\s*@async_generator\n', r'', code)
-            code = re.sub(r'await yield_', r'yield', code)
+            code = re.sub(r"(?m)^\s*@async_generator\n", r"", code)
+            code = re.sub(r"await yield_", r"yield", code)
             return code
 
         return patch_code
@@ -121,9 +121,7 @@ def test_nested_async_yield_fixture(testdir, async_yield_implementation):
     result.assert_outcomes(passed=3)
 
 
-def test_async_yield_fixture_within_sync_fixture(
-        testdir, async_yield_implementation
-):
+def test_async_yield_fixture_within_sync_fixture(testdir, async_yield_implementation):
 
     testdir.makepyfile(
         async_yield_implementation(
@@ -174,7 +172,7 @@ def test_async_yield_fixture_within_sync_fixture(
 
 
 def test_async_yield_fixture_within_sync_yield_fixture(
-        testdir, async_yield_implementation
+    testdir, async_yield_implementation
 ):
 
     testdir.makepyfile(
@@ -230,9 +228,7 @@ def test_async_yield_fixture_within_sync_yield_fixture(
     result.assert_outcomes(passed=3)
 
 
-def test_async_yield_fixture_with_multiple_yields(
-        testdir, async_yield_implementation
-):
+def test_async_yield_fixture_with_multiple_yields(testdir, async_yield_implementation):
 
     testdir.makepyfile(
         async_yield_implementation(
@@ -304,7 +300,7 @@ def test_async_yield_fixture_with_nursery(testdir, async_yield_implementation):
 
 
 def test_async_yield_fixture_crashed_teardown_allow_other_teardowns(
-        testdir, async_yield_implementation
+    testdir, async_yield_implementation
 ):
 
     testdir.makepyfile(
@@ -358,6 +354,4 @@ def test_async_yield_fixture_crashed_teardown_allow_other_teardowns(
     result = testdir.runpytest()
 
     result.assert_outcomes(failed=1, passed=2)
-    result.stdout.re_match_lines(
-        [r'E\W+RuntimeError: Crash during fixture teardown']
-    )
+    result.stdout.re_match_lines([r"E\W+RuntimeError: Crash during fixture teardown"])

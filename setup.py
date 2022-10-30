@@ -14,7 +14,7 @@ setup(
     author_email="emmanuel.leblond@gmail.com",
     license="MIT -or- Apache License 2.0",
     packages=find_packages(),
-    entry_points={'pytest11': ['trio = pytest_trio.plugin']},
+    entry_points={"pytest11": ["trio = pytest_trio.plugin"]},
     install_requires=[
         "trio >= 0.22.0",  # for ExceptionGroup support
         "async_generator >= 1.9",
@@ -22,10 +22,10 @@ setup(
         "pytest >= 7.2.0",  # for ExceptionGroup support
     ],
     keywords=[
-        'async',
-        'pytest',
-        'testing',
-        'trio',
+        "async",
+        "pytest",
+        "testing",
+        "trio",
     ],
     python_requires=">=3.7",
     classifiers=[
