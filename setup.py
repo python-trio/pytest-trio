@@ -16,11 +16,10 @@ setup(
     packages=find_packages(),
     entry_points={'pytest11': ['trio = pytest_trio.plugin']},
     install_requires=[
-        "trio >= 0.15.0",
+        "trio >= 0.22.0",  # for ExceptionGroup support
         "async_generator >= 1.9",
-        "outcome",
-        # For node.get_closest_marker
-        "pytest >= 3.6"
+        "outcome >= 1.1.0",
+        "pytest >= 7.2.0",  # for ExceptionGroup support
     ],
     keywords=[
         'async',
