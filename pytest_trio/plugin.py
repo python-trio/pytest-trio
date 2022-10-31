@@ -10,6 +10,7 @@ import pytest
 import trio
 from trio.abc import Clock, Instrument
 from trio.testing import MockClock
+from _pytest.outcomes import Skipped, XFailed
 
 if sys.version_info[:2] < (3, 11):
     from exceptiongroup import BaseExceptionGroup
@@ -343,7 +344,25 @@ def _trio_test(run):
                     f"Expected at most one Clock in kwargs, got {clocks!r}"
                 )
             instruments = [i for i in kwargs.values() if isinstance(i, Instrument)]
-            return run(partial(fn, **kwargs), clock=clock, instruments=instruments)
+            try:
+                return run(partial(fn, **kwargs), clock=clock, instruments=instruments)
+            except BaseExceptionGroup as eg:
+                queue = [eg]
+                leaves = []
+                while queue:
+                    ex = queue.pop()
+                    if isinstance(ex, BaseExceptionGroup):
+                        queue.extend(ex.exceptions)
+                    else:
+                        leaves.append(ex)
+                if len(leaves) == 1:
+                    if isinstance(leaves[0], XFailed):
+                        pytest.xfail()
+                    if isinstance(leaves[0], Skipped):
+                        pytest.skip()
+                # Since our leaf exceptions don't consist of exactly one 'magic'
+                # skipped or xfailed exception, re-raise the whole group.
+                raise
 
         return wrapper
 
