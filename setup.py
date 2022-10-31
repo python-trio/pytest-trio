@@ -14,21 +14,19 @@ setup(
     author_email="emmanuel.leblond@gmail.com",
     license="MIT -or- Apache License 2.0",
     packages=find_packages(),
-    entry_points={'pytest11': ['trio = pytest_trio.plugin']},
+    entry_points={"pytest11": ["trio = pytest_trio.plugin"]},
     install_requires=[
-        "trio >= 0.15.0",
-        "async_generator >= 1.9",
-        "outcome",
-        # For node.get_closest_marker
-        "pytest >= 3.6"
+        "trio >= 0.22.0",  # for ExceptionGroup support
+        "outcome >= 1.1.0",
+        "pytest >= 7.2.0",  # for ExceptionGroup support
     ],
     keywords=[
-        'async',
-        'pytest',
-        'testing',
-        'trio',
+        "async",
+        "pytest",
+        "testing",
+        "trio",
     ],
-    python_requires=">=3.6",
+    python_requires=">=3.7",
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "License :: OSI Approved :: Apache Software License",
@@ -36,6 +34,11 @@ setup(
         "Operating System :: MacOS :: MacOS X",
         "Operating System :: Microsoft :: Windows",
         "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
         "Topic :: System :: Networking",

@@ -1,8 +1,9 @@
 import pytest
 import trio
 from trio.tests.test_scheduler_determinism import (
-    scheduler_trace, test_the_trio_scheduler_is_not_deterministic,
-    test_the_trio_scheduler_is_deterministic_if_seeded
+    scheduler_trace,
+    test_the_trio_scheduler_is_not_deterministic,
+    test_the_trio_scheduler_is_deterministic_if_seeded,
 )
 from hypothesis import given, settings, strategies as st
 
@@ -29,7 +30,7 @@ async def test_mark_outer(n):
 
 
 @our_settings
-@pytest.mark.parametrize('y', [1, 2])
+@pytest.mark.parametrize("y", [1, 2])
 @given(x=st.none())
 @pytest.mark.trio
 async def test_mark_and_parametrize(x, y):

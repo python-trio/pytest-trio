@@ -120,7 +120,7 @@ def test_async_within_sync_fixture(testdir):
 # they are actually run just before the test, providing no way to make the
 # difference between an exception coming from the real test or from an
 # async fixture...
-@pytest.mark.xfail(reason='Not implemented yet')
+@pytest.mark.xfail(reason="Not implemented yet")
 def test_raise_in_async_fixture_cause_pytest_error(testdir):
 
     testdir.makepyfile(

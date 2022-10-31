@@ -58,7 +58,7 @@ def test_async_test_as_class_method(testdir):
     result.assert_outcomes(passed=2)
 
 
-@pytest.mark.xfail(reason='Raises pytest internal error so far...')
+@pytest.mark.xfail(reason="Raises pytest internal error so far...")
 def test_sync_function_with_trio_mark(testdir):
 
     testdir.makepyfile(
