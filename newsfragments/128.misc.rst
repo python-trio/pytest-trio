@@ -1,0 +1,4 @@
+Trio 0.22.0 deprecated ``MultiError`` in favor of the standard-library
+(or `backported <https://pypi.org/project/exceptiongroup/>`__) ``ExceptionGroup``
+type; ``pytest-trio`` now uses ``ExceptionGroup`` and therefore requires
+Trio 0.22.0 or later.

@@ -139,4 +139,6 @@ def test_sync_yield_fixture_crashed_teardown_allow_other_teardowns(testdir):
     result = testdir.runpytest()
 
     result.assert_outcomes(failed=1, passed=2)
-    result.stdout.re_match_lines([r"E\W+RuntimeError: Crash during fixture teardown"])
+    result.stdout.re_match_lines(
+        [r"(E\W+| +\| )RuntimeError: Crash during fixture teardown"]
+    )
