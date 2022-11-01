@@ -1,6 +1,6 @@
 """pytest-trio implementation."""
+import sys
 from functools import wraps, partial
-from traceback import format_exception
 from collections.abc import Coroutine, Generator
 from contextlib import asynccontextmanager
 from inspect import isasyncgen, isasyncgenfunction, iscoroutinefunction
@@ -10,6 +10,10 @@ import pytest
 import trio
 from trio.abc import Clock, Instrument
 from trio.testing import MockClock
+from _pytest.outcomes import Skipped, XFailed
+
+if sys.version_info[:2] < (3, 11):
+    from exceptiongroup import BaseExceptionGroup
 
 ################################################################
 # Basic setup
@@ -50,13 +54,6 @@ def pytest_configure(config):
         "markers",
         "trio: mark the test as an async trio test; it will be run using trio.run",
     )
-
-
-@pytest.hookimpl(tryfirst=True)
-def pytest_exception_interact(node, call, report):
-    if issubclass(call.excinfo.type, trio.MultiError):
-        # TODO: not really elegant (pytest cannot output color with this hack)
-        report.longrepr = "".join(format_exception(*call.excinfo._excinfo))
 
 
 ################################################################
@@ -347,7 +344,25 @@ def _trio_test(run):
                     f"Expected at most one Clock in kwargs, got {clocks!r}"
                 )
             instruments = [i for i in kwargs.values() if isinstance(i, Instrument)]
-            return run(partial(fn, **kwargs), clock=clock, instruments=instruments)
+            try:
+                return run(partial(fn, **kwargs), clock=clock, instruments=instruments)
+            except BaseExceptionGroup as eg:
+                queue = [eg]
+                leaves = []
+                while queue:
+                    ex = queue.pop()
+                    if isinstance(ex, BaseExceptionGroup):
+                        queue.extend(ex.exceptions)
+                    else:
+                        leaves.append(ex)
+                if len(leaves) == 1:
+                    if isinstance(leaves[0], XFailed):
+                        pytest.xfail()
+                    if isinstance(leaves[0], Skipped):
+                        pytest.skip()
+                # Since our leaf exceptions don't consist of exactly one 'magic'
+                # skipped or xfailed exception, re-raise the whole group.
+                raise
 
         return wrapper
 
@@ -407,8 +422,12 @@ def _trio_test_runner_factory(item, testfunc=None):
                     )
                 )
 
-        if test_ctx.error_list:
-            raise trio.MultiError(test_ctx.error_list)
+        if len(test_ctx.error_list) == 1:
+            raise test_ctx.error_list[0]
+        elif test_ctx.error_list:
+            raise BaseExceptionGroup(
+                "errors in async test and trio fixtures", test_ctx.error_list
+            )
 
     _bootstrap_fixtures_and_run_test._trio_test_runner_wrapped = True
     return _bootstrap_fixtures_and_run_test
