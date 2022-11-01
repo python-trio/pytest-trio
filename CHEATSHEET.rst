@@ -9,15 +9,7 @@ To run tests
 
 * Actually run the tests: ``pytest pytest_trio``
 
-
-To run yapf
------------
-
-* Show what changes yapf wants to make: ``yapf -rpd setup.py
-  pytest_trio``
-
-* Apply all changes directly to the source tree: ``yapf -rpi setup.py
-  pytest_trio``
+* Format the code with ``black .``
 
 
 To make a release

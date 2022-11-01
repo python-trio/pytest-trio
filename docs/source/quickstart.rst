@@ -93,17 +93,6 @@ And we're done! Let's try running pytest again:
    ============================== FAILURES ==============================
    __________________________ test_should_fail __________________________
 
-   value = <trio.Nursery object at 0x7f97b21fafa0>
-
-       async def yield_(value=None):
-   >       return await _yield_(value)
-
-   venv/lib/python3.8/site-packages/async_generator/_impl.py:106:
-   _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-   venv/lib/python3.8/site-packages/async_generator/_impl.py:99: in _yield_
-       return (yield _wrap(value))
-   _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-
        async def test_should_fail():
    >       assert False
    E       assert False
@@ -179,13 +168,6 @@ regular pytest fixture::
        # Teardown code, executed after the test is done
        await connection.execute("ROLLBACK")
 
-If you need to support Python 3.5, which doesn't allow ``yield``
-inside an ``async def`` function, then you can define async fixtures
-using the `async_generator
-<https://async-generator.readthedocs.io/en/latest/reference.html>`__
-library – just make sure to put the ``@pytest.fixture`` *above* the
-``@async_generator``.
-
 
 .. _server-fixture-example:
 
@@ -232,7 +214,7 @@ Here's a first attempt::
 
 This will mostly work, but it has a few problems. The most obvious one
 is that when we run it, even if everything works perfectly, it will
-hang at the end of the test – we never shut down the server, so the
+hang at the end of the test - we never shut down the server, so the
 nursery block will wait forever for it to exit.
 
 To avoid this, we should cancel the nursery at the end of the test:
@@ -292,9 +274,9 @@ you afterwards:
 Next problem: we have a race condition. We spawn a background task to
 call ``serve_tcp``, and then immediately try to connect to that
 server. Sometimes this will work fine. But it takes a little while for
-the server to start up and be ready to accept connections – so other
+the server to start up and be ready to accept connections - so other
 times, randomly, our connection attempt will happen too quickly, and
-error out. After all – ``nursery.start_soon`` only promises that the
+error out. After all - ``nursery.start_soon`` only promises that the
 task will be started *soon*, not that it has actually happened. So this
 test will be flaky, and flaky tests are the worst.
 
@@ -378,7 +360,7 @@ Putting it all together:
                await echo_client.send_all(test_byte)
                assert await echo_client.receive_some(1) == test_byte
 
-Now, this works – but there's still a lot of boilerplate. Remember, we
+Now, this works - but there's still a lot of boilerplate. Remember, we
 need to write lots of tests for this server, and we don't want to have
 to copy-paste all that stuff into every test. Let's factor out the
 setup into a fixture::
