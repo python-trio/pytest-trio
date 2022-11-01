@@ -1,2 +1,0 @@
-Dropped support for end-of-life Python 3.6, and the ``async_generator`` library
-necessary to support it, and started testing on Python 3.10 and 3.11.
