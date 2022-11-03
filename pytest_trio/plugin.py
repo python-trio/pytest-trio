@@ -508,6 +508,9 @@ def pytest_fixture_setup(fixturedef, request):
 
 def automark(items, run=trio.run):
     for item in items:
+        if not hasattr(item, "obj"):
+            # Rare and a little strange, but happens with some doctest-like plugins
+            continue
         if hasattr(item.obj, "hypothesis"):
             test_func = item.obj.hypothesis.inner_test
         else:
