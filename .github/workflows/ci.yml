@@ -16,9 +16,9 @@ jobs:
         python: ['3.7', '3.8', '3.9', '3.10', '3.11']
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: '${{ matrix.python }}'
       - name: Run tests
@@ -48,14 +48,14 @@ jobs:
             extra_name: ', check docs'
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         if: "!endsWith(matrix.python, '-dev')"
         with:
           python-version: '${{ matrix.python }}'
       - name: Setup python (dev)
-        uses: deadsnakes/action@v2.0.2
+        uses: deadsnakes/action@v2.1.1
         if: endsWith(matrix.python, '-dev')
         with:
           python-version: '${{ matrix.python }}'
@@ -77,9 +77,9 @@ jobs:
         python: ['3.7', '3.8', '3.9', '3.10', '3.11']
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: '${{ matrix.python }}'
       - name: Run tests
