@@ -2,7 +2,6 @@ import pytest
 
 
 def test_single_async_fixture(testdir):
-
     testdir.makepyfile(
         """
         import pytest
@@ -25,7 +24,6 @@ def test_single_async_fixture(testdir):
 
 
 def test_async_fixture_recomputed_for_each_test(testdir):
-
     testdir.makepyfile(
         """
         import pytest
@@ -56,7 +54,6 @@ def test_async_fixture_recomputed_for_each_test(testdir):
 
 
 def test_nested_async_fixture(testdir):
-
     testdir.makepyfile(
         """
         import pytest
@@ -89,7 +86,6 @@ def test_nested_async_fixture(testdir):
 
 
 def test_async_within_sync_fixture(testdir):
-
     testdir.makepyfile(
         """
         import pytest
@@ -122,7 +118,6 @@ def test_async_within_sync_fixture(testdir):
 # async fixture...
 @pytest.mark.xfail(reason="Not implemented yet")
 def test_raise_in_async_fixture_cause_pytest_error(testdir):
-
     testdir.makepyfile(
         """
         import pytest

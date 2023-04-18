@@ -30,7 +30,7 @@ python setup.py sdist --formats=zip
 python -m pip install dist/*.zip
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
-    pip install black
+    pip install black~=23.0
     if ! black --check . ; then
         cat <<EOF
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
