@@ -33,6 +33,8 @@ and async I/O in Python. Features include:
   <https://hypothesis.works/>`__ library, so your async tests can use
   property-based testing: just use ``@given`` like you're used to.
 
+* Integration with `pytest-timeout <https://github.com/pytest-dev/pytest-timeout>`
+
 * Support for testing projects that use Trio exclusively and want to
   use pytest-trio everywhere, and also for testing projects that
   support multiple async libraries and only want to enable

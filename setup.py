@@ -19,6 +19,7 @@ setup(
         "trio >= 0.22.0",  # for ExceptionGroup support
         "outcome >= 1.1.0",
         "pytest >= 7.2.0",  # for ExceptionGroup support
+        "pytest_timeout",
     ],
     keywords=[
         "async",

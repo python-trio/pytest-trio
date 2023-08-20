@@ -1,4 +1,5 @@
 """pytest-trio implementation."""
+from __future__ import annotations
 import sys
 from functools import wraps, partial
 from collections.abc import Coroutine, Generator
@@ -11,6 +12,8 @@ import trio
 from trio.abc import Clock, Instrument
 from trio.testing import MockClock
 from _pytest.outcomes import Skipped, XFailed
+# pytest_timeout_set_timer needs to be imported here for pluggy
+from .timeout import set_timeout, pytest_timeout_set_timer as pytest_timeout_set_timer
 
 if sys.version_info[:2] < (3, 11):
     from exceptiongroup import BaseExceptionGroup
@@ -38,6 +41,12 @@ def pytest_addoption(parser):
     parser.addini(
         "trio_mode",
         "should pytest-trio handle all async functions?",
+        type="bool",
+        default=False,
+    )
+    parser.addini(
+        "trio_timeout",
+        "should pytest-trio handle timeouts on async functions?",
         type="bool",
         default=False,
     )
@@ -403,6 +412,9 @@ def _trio_test_runner_factory(item, testfunc=None):
 
         contextvars_ctx = contextvars.copy_context()
         contextvars_ctx.run(canary.set, "in correct context")
+
+        if item is not None:
+            set_timeout(item)
 
         async with trio.open_nursery() as nursery:
             for fixture in test.register_and_collect_dependencies():
