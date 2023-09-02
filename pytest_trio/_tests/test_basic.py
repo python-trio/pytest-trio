@@ -2,7 +2,6 @@ import pytest
 
 
 def test_async_test_is_executed(testdir):
-
     testdir.makepyfile(
         """
         import pytest
@@ -27,7 +26,6 @@ def test_async_test_is_executed(testdir):
 
 
 def test_async_test_as_class_method(testdir):
-
     testdir.makepyfile(
         """
         import pytest
@@ -60,7 +58,6 @@ def test_async_test_as_class_method(testdir):
 
 @pytest.mark.xfail(reason="Raises pytest internal error so far...")
 def test_sync_function_with_trio_mark(testdir):
-
     testdir.makepyfile(
         """
         import pytest
@@ -77,7 +74,6 @@ def test_sync_function_with_trio_mark(testdir):
 
 
 def test_skip_and_xfail(testdir):
-
     testdir.makepyfile(
         """
         import functools

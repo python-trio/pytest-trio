@@ -38,7 +38,6 @@ def test_single_async_yield_fixture(testdir):
 
 
 def test_nested_async_yield_fixture(testdir):
-
     testdir.makepyfile(
         """
         import pytest
@@ -93,7 +92,6 @@ def test_nested_async_yield_fixture(testdir):
 
 
 def test_async_yield_fixture_within_sync_fixture(testdir):
-
     testdir.makepyfile(
         """
         import pytest
@@ -139,7 +137,6 @@ def test_async_yield_fixture_within_sync_fixture(testdir):
 
 
 def test_async_yield_fixture_within_sync_yield_fixture(testdir):
-
     testdir.makepyfile(
         """
         import pytest
@@ -190,7 +187,6 @@ def test_async_yield_fixture_within_sync_yield_fixture(testdir):
 
 
 def test_async_yield_fixture_with_multiple_yields(testdir):
-
     testdir.makepyfile(
         """
         import pytest
@@ -217,7 +213,6 @@ def test_async_yield_fixture_with_multiple_yields(testdir):
 
 
 def test_async_yield_fixture_with_nursery(testdir):
-
     testdir.makepyfile(
         """
         import pytest
@@ -253,7 +248,6 @@ def test_async_yield_fixture_with_nursery(testdir):
 
 
 def test_async_yield_fixture_crashed_teardown_allow_other_teardowns(testdir):
-
     testdir.makepyfile(
         """
         import pytest
