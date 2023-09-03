@@ -420,3 +420,28 @@ it can be passed directly to the marker.
    @pytest.mark.trio(run=qtrio.run)
    async def test():
        assert True
+
+
+Configuring timeouts with pytest-timeout
+----------------------------------------
+
+Timeouts can be configured using the ``@pytest.mark.timeout`` decorator.
+
+.. code-block:: python
+
+   import pytest
+   import trio
+
+   @pytest.mark.timeout(10)
+   async def test():
+       await trio.sleep_forever()  # will error after 10 seconds
+
+To get clean stacktraces that cover all tasks running when the timeout was triggered, enable the ``trio_timeout`` option.
+
+.. code-block:: ini
+
+   # pytest.ini
+   [pytest]
+   trio_timeout = true
+
+This timeout method requires a functioning loop, and hence will not be triggered if your test doesn't yield to the loop. This typically occurs when the test is stuck on some non-async piece of code.

@@ -1,0 +1,1 @@
+Add support for pytest-timeout using our own timeout method. This timeout method can be enable via the option ``trio_timeout`` in ``pytest.ini`` and will print structured tracebacks of all tasks running when the timeout happened.

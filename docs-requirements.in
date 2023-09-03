@@ -12,3 +12,4 @@ towncrier != 19.9.0,!= 21.3.0
 trio >= 0.22.0
 outcome >= 1.1.0
 pytest >= 7.2.0
+pytest_timeout

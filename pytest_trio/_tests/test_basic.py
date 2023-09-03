@@ -1,4 +1,6 @@
+import functools
 import pytest
+import trio
 
 
 def test_async_test_is_executed(testdir):
@@ -73,14 +75,16 @@ def test_sync_function_with_trio_mark(testdir):
     result.assert_outcomes(errors=1)
 
 
-def test_skip_and_xfail(testdir):
+def test_skip_and_xfail(testdir, monkeypatch):
+    monkeypatch.setattr(
+        trio, "run", functools.partial(trio.run, strict_exception_groups=True)
+    )
+
     testdir.makepyfile(
         """
         import functools
         import pytest
         import trio
-
-        trio.run = functools.partial(trio.run, strict_exception_groups=True)
 
         @pytest.mark.trio
         async def test_xfail():
