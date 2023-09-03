@@ -50,6 +50,10 @@ def pytest_timeout_set_timer(
 # No need for pytest_timeout_cancel_timer as we detect that the test loop has exited
 
 
+class TimeoutTriggeredException(Exception):
+    pass
+
+
 def trio_timeout_thread():
     async def run_timeouts():
         async with trio.open_nursery() as nursery:
@@ -89,7 +93,7 @@ async def execute_timeout() -> None:
     stack = "\n".join(format_recursive_nursery_stack(nursery) + ["Timeout reached"])
 
     async def report():
-        pytest.fail(stack, pytrace=False)
+        raise TimeoutTriggeredException(stack)
 
     nursery.start_soon(report)
 

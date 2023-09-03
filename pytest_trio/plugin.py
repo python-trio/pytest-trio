@@ -12,8 +12,13 @@ import trio
 from trio.abc import Clock, Instrument
 from trio.testing import MockClock
 from _pytest.outcomes import Skipped, XFailed
+
 # pytest_timeout_set_timer needs to be imported here for pluggy
-from .timeout import set_timeout, pytest_timeout_set_timer as pytest_timeout_set_timer
+from .timeout import (
+    set_timeout,
+    TimeoutTriggeredException,
+    pytest_timeout_set_timer as pytest_timeout_set_timer,
+)
 
 if sys.version_info[:2] < (3, 11):
     from exceptiongroup import BaseExceptionGroup
@@ -362,6 +367,8 @@ def _trio_test(run):
                     ex = queue.pop()
                     if isinstance(ex, BaseExceptionGroup):
                         queue.extend(ex.exceptions)
+                    elif isinstance(ex, TimeoutTriggeredException):
+                        pytest.fail(str(ex), pytrace=False)
                     else:
                         leaves.append(ex)
                 if len(leaves) == 1:
@@ -372,6 +379,8 @@ def _trio_test(run):
                 # Since our leaf exceptions don't consist of exactly one 'magic'
                 # skipped or xfailed exception, re-raise the whole group.
                 raise
+            except TimeoutTriggeredException as ex:
+                pytest.fail(str(ex), pytrace=False)
 
         return wrapper
 
