@@ -45,6 +45,7 @@ nitpick_ignore = [
     ("py:obj", "bytes-like"),
 ]
 
+
 # XX hack the RTD theme until
 #   https://github.com/rtfd/sphinx_rtd_theme/pull/382
 # is shipped (should be in the release after 0.2.4)
