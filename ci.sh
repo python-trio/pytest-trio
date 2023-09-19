@@ -23,11 +23,11 @@ function curl-harder() {
 }
 
 
-python -m pip install -U pip setuptools wheel
+python -m pip install -U pip setuptools wheel pep517
 python -m pip --version
 
-python setup.py sdist --formats=zip
-python -m pip install dist/*.zip
+python -m pep517.build --source --out-dir dist/ .
+python -m pip install dist/*.tar.gz
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
     pip install black
