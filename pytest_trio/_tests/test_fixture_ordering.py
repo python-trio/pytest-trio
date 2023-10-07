@@ -3,8 +3,9 @@ import pytest
 
 # Tests that:
 # - leaf_fix gets set up first and torn down last
-# - the two fix_concurrent_{1,2} fixtures run their setup/teardown code
-#   at the same time -- their execution can be interleaved.
+# - the two fix_{1,2} fixtures run their setup/teardown code
+#   in the expected order 
+#   fix_1 setup -> fix_2 setup -> fix_2 teardown -> fix_1 teardown
 def test_fixture_basic_ordering(testdir):
     testdir.makepyfile(
         """
@@ -26,45 +27,45 @@ def test_fixture_basic_ordering(testdir):
             teardown_events.append("leaf_fix teardown")
 
             assert teardown_events == [
-                "fix_concurrent_1 teardown 1",
-                "fix_concurrent_2 teardown 1",
-                "fix_concurrent_1 teardown 2",
-                "fix_concurrent_2 teardown 2",
+                "fix_2 teardown 1",
+                "fix_2 teardown 2",
+                "fix_1 teardown 1",
+                "fix_1 teardown 2",
                 "leaf_fix teardown",
             ]
 
         @pytest.fixture
-        async def fix_concurrent_1(leaf_fix, seq):
+        async def fix_1(leaf_fix, seq):
             async with seq(0):
-                setup_events.append("fix_concurrent_1 setup 1")
-            async with seq(2):
-                setup_events.append("fix_concurrent_1 setup 2")
+                setup_events.append("fix_1 setup 1")
+            async with seq(1):
+                setup_events.append("fix_1 setup 2")
             yield
-            async with seq(4):
-                teardown_events.append("fix_concurrent_1 teardown 1")
             async with seq(6):
-                teardown_events.append("fix_concurrent_1 teardown 2")
+                teardown_events.append("fix_1 teardown 1")
+            async with seq(7):
+                teardown_events.append("fix_1 teardown 2")
 
         @pytest.fixture
-        async def fix_concurrent_2(leaf_fix, seq):
-            async with seq(1):
-                setup_events.append("fix_concurrent_2 setup 1")
+        async def fix_2(leaf_fix, seq):
+            async with seq(2):
+                setup_events.append("fix_2 setup 1")
             async with seq(3):
-                setup_events.append("fix_concurrent_2 setup 2")
+                setup_events.append("fix_2 setup 2")
             yield
+            async with seq(4):
+                teardown_events.append("fix_2 teardown 1")
             async with seq(5):
-                teardown_events.append("fix_concurrent_2 teardown 1")
-            async with seq(7):
-                teardown_events.append("fix_concurrent_2 teardown 2")
+                teardown_events.append("fix_2 teardown 2")
 
         @pytest.mark.trio
-        async def test_root(fix_concurrent_1, fix_concurrent_2):
+        async def test_root(fix_1, fix_2):
             assert setup_events == [
                 "leaf_fix setup",
-                "fix_concurrent_1 setup 1",
-                "fix_concurrent_2 setup 1",
-                "fix_concurrent_1 setup 2",
-                "fix_concurrent_2 setup 2",
+                "fix_1 setup 1",
+                "fix_1 setup 2",
+                "fix_2 setup 1",
+                "fix_2 setup 2",
             ]
             assert teardown_events == []
 
@@ -74,6 +75,52 @@ def test_fixture_basic_ordering(testdir):
     result = testdir.runpytest()
     result.assert_outcomes(passed=1)
 
+def test_context_vars_modification_follows_fixture_ordering(testdir):
+    """
+    Tests that fixtures are being set up and tore down synchronously.
+    
+    Specifically this ensures that fixtures that modify context variables
+    doesn't lead to a weird contextvar states
+
+    Main assertion is that 2 async tasks in teardown (Resource.__aexit__)
+    doesn't crash
+    """
+    testdir.makepyfile(
+        """
+        import pytest
+        from pytest_trio import trio_fixture
+        import trio_asyncio
+        import asyncio 
+        import trio
+        class Resource():
+            async def __aenter__(self):
+                await trio_asyncio.aio_as_trio(asyncio.sleep(0)) 
+            
+            async def __aexit__(self, *_):
+                # We need to yield and run another trio task
+                await trio.sleep(0.1)
+                await trio_asyncio.aio_as_trio(asyncio.sleep(0)) 
+
+        @pytest.fixture
+        async def resource():
+            async with trio_asyncio.open_loop() as loop:
+                async with Resource():
+                    yield
+
+        @pytest.fixture
+        async def trio_asyncio_loop():
+            async with trio_asyncio.open_loop() as loop:
+                yield loop
+
+        @pytest.mark.trio
+        async def test_root(trio_asyncio_loop, resource):
+            await trio.sleep(0)
+            assert True
+        """
+    )
+
+    result = testdir.runpytest()
+    result.assert_outcomes(passed=1)
 
 def test_nursery_fixture_teardown_ordering(testdir):
     testdir.makepyfile(
@@ -139,6 +186,9 @@ def test_error_collection(testdir):
     # hasn't even started yet. Maybe we shouldn't? But for now the sleeps make
     # sure that all the fixtures have started before any of them start
     # crashing.
+
+    # Although all fixtures are meant to crash, we only expect the first crash output
+    # since the teardown are synchronous. 
     testdir.makepyfile(
         """
         import pytest
@@ -194,10 +244,6 @@ def test_error_collection(testdir):
     result.stdout.fnmatch_lines_random(
         [
             "*CRASH_NONGEN*",
-            "*CRASH_EARLY_AGEN*",
-            "*CRASH_LATE_AGEN*",
-            "*CRASH_BACKGROUND_EARLY*",
-            "*CRASH_BACKGROUND_LATE*",
         ]
     )
 
