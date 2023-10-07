@@ -1,12 +1,14 @@
 import pytest
 
 
-# Tests that:
-# - leaf_fix gets set up first and torn down last
-# - the two fix_{1,2} fixtures run their setup/teardown code
-#   in the expected order
-#   fix_1 setup -> fix_2 setup -> fix_2 teardown -> fix_1 teardown
 def test_fixture_basic_ordering(testdir):
+    """
+    Tests that:
+    - leaf_fix gets set up first and torn down last
+    - the two fix_{1,2} fixtures run their setup/teardown code
+      in the expected order
+      fix_1 setup -> fix_2 setup -> fix_2 teardown -> fix_1 teardown
+    """
     testdir.makepyfile(
         """
         import pytest
@@ -76,10 +78,11 @@ def test_fixture_basic_ordering(testdir):
     result.assert_outcomes(passed=1)
 
 
-# This test involves several fixtures forming
-# a pretty complicated dag, make sure we got the topological
-# sort in order
 def test_fixture_complicated_dag_ordering(testdir):
+    """
+    This test involves several fixtures forming a pretty
+    complicated dag, make sure we got the topological sort in order
+    """
     testdir.makepyfile(
         """
         import pytest
@@ -256,6 +259,10 @@ def test_nursery_fixture_teardown_ordering(testdir):
 
 
 def test_error_message_upon_circular_dependency(testdir):
+    """
+    Make sure that the error message is produced if there's
+    a circular dependency on the fixtures
+    """
     testdir.makepyfile(
         """
         import pytest
@@ -295,8 +302,8 @@ def test_error_collection(testdir):
     # sure that all the fixtures have started before any of them start
     # crashing.
 
-    # Although all fixtures are meant to crash, we only expect the first crash output
-    # since the teardown are synchronous.
+    # Although all fixtures are meant to crash, we only expect the crash output
+    # of the first fixture in the teardown sequence since the teardown are synchronous.
     testdir.makepyfile(
         """
         import pytest
