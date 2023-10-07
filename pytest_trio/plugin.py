@@ -161,8 +161,11 @@ class TrioFixture:
         self._func = func
         self._pytest_kwargs = pytest_kwargs
         self._is_test = is_test
-        self._teardown_done = trio.Event()
-
+        # Previous and next fixture in terms of fixture topological order
+        # During set up, each fixture waits for previous_fixture to set its setup_done value 
+        self.previous_fixture = None
+        # During tear down, each fixture waits for next_fixture to set its teardown_done value 
+        self.next_fixture = None
         # These attrs are all accessed from other objects:
         # Downstream users read this value.
         self.fixture_value = None
@@ -170,21 +173,32 @@ class TrioFixture:
         # Invariant: if this is set, then either fixture_value is usable *or*
         # test_ctx.crashed is True.
         self.setup_done = trio.Event()
-        # Downstream users *modify* this value, by adding their _teardown_done
-        # events to it, so we know who we need to wait for before tearing
-        # down.
-        self.user_done_events = set()
+        # This event notifies downstream users that we're done setting up.
+        # Same invariant as setup_done
+        self.teardown_done = trio.Event()
 
-    def register_and_collect_dependencies(self):
+    def collect_dependencies(self):
         # Returns the set of all TrioFixtures that this fixture depends on,
-        # directly or indirectly, and sets up all their user_done_events.
-        deps = set()
-        deps.add(self)
+        # directly or indirectly, in a topological order
+        deps = []
         for value in self._pytest_kwargs.values():
             if isinstance(value, TrioFixture):
-                value.user_done_events.add(self._teardown_done)
-                deps.update(value.register_and_collect_dependencies())
+                for indirect_dependency in value.collect_dependencies():
+                    if indirect_dependency not in deps:
+                        deps.append(indirect_dependency)
+        deps.append(self)
         return deps
+    
+    def collect_register_dependencies(self):
+        # Collect dependencies then register previous and next fixture 
+        # for each fixture (in terms of its topological order)
+        deps = self.collect_dependencies()
+        for index, dep in enumerate(deps):
+            if index > 0:
+                dep.previous_fixture = deps[index - 1]
+            if index < len(deps) - 1:
+                dep.next_fixture = deps[index + 1]
+        return deps 
 
     @asynccontextmanager
     async def _fixture_manager(self, test_ctx):
@@ -199,7 +213,7 @@ class TrioFixture:
             test_ctx.crash(self, exc)
         finally:
             self.setup_done.set()
-            self._teardown_done.set()
+            self.teardown_done.set()
 
     async def run(self, test_ctx, contextvars_ctx):
         __tracebackhide__ = True
@@ -219,11 +233,13 @@ class TrioFixture:
         # teardone_done event, and crashing the context if there's an
         # unhandled exception.
         async with self._fixture_manager(test_ctx) as nursery_fixture:
+            if self.previous_fixture:
+                await self.previous_fixture.setup_done.wait()
+            
             # Resolve our kwargs
             resolved_kwargs = {}
             for name, value in self._pytest_kwargs.items():
                 if isinstance(value, TrioFixture):
-                    await value.setup_done.wait()
                     if value.fixture_value is NURSERY_FIXTURE_PLACEHOLDER:
                         resolved_kwargs[name] = nursery_fixture
                     else:
@@ -244,7 +260,6 @@ class TrioFixture:
             if self._is_test:
                 # Tests are exactly like fixtures, except that they to be
                 # regular async functions.
-                assert not self.user_done_events
                 func_value = None
                 assert not test_ctx.crashed
                 await self._func(**resolved_kwargs)
@@ -293,16 +308,16 @@ class TrioFixture:
             # about cancellation.
             yield_outcome = outcome.Value(None)
             try:
-                for event in self.user_done_events:
-                    await event.wait()
+                if self.next_fixture:
+                    await self.next_fixture.teardown_done.wait()
             except BaseException as exc:
                 assert isinstance(exc, trio.Cancelled)
                 yield_outcome = outcome.Error(exc)
                 test_ctx.crash(self, None)
                 with trio.CancelScope(shield=True):
-                    for event in self.user_done_events:
-                        await event.wait()
-
+                    if self.next_fixture:
+                        await self.next_fixture.teardown_done.wait()
+            
             # Do our teardown
             if isasyncgen(func_value):
                 try:
@@ -405,7 +420,7 @@ def _trio_test_runner_factory(item, testfunc=None):
         contextvars_ctx.run(canary.set, "in correct context")
 
         async with trio.open_nursery() as nursery:
-            for fixture in test.register_and_collect_dependencies():
+            for fixture in test.collect_register_dependencies():
                 nursery.start_soon(
                     fixture.run, test_ctx, contextvars_ctx, name=fixture.name
                 )
