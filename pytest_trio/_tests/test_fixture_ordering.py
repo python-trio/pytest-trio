@@ -165,6 +165,8 @@ def test_contextvars_modification_follows_fixture_ordering(testdir):
 
     Specifically this ensures that fixtures that modify context variables
     doesn't lead to a race condition.
+    This tries to simluate thing like trio_asyncio.open_loop that modifies
+    the contextvar.
 
     Main assertion is that 2 async tasks in teardown (Resource.__aexit__)
     doesn't crash.
@@ -172,27 +174,38 @@ def test_contextvars_modification_follows_fixture_ordering(testdir):
     testdir.makepyfile(
         """
         import pytest
-        import trio_asyncio
-        import asyncio
         import trio
+        from contextlib import asynccontextmanager
+
+        current_value = ContextVar("variable", default=None)
+
+        @asynccontextmanager
+        async def variable_setter():
+            old_value = current_value.set("value")
+            try:
+                await trio.sleep(0)
+                yield
+            finally:
+                current_value.reset(old_value)
+
         class Resource():
             async def __aenter__(self):
-                await trio_asyncio.aio_as_trio(asyncio.sleep(0))
+                await trio.sleep(0)
 
             async def __aexit__(self, *_):
                 # We need to yield and run another trio task
-                await trio.sleep(0.1)
-                await trio_asyncio.aio_as_trio(asyncio.sleep(0))
+                await trio.sleep(0)
+                assert current_value.get() is not None
 
         @pytest.fixture
         async def resource():
-            async with trio_asyncio.open_loop() as loop:
+            async with variable_setter() as loop:
                 async with Resource():
                     yield
 
         @pytest.fixture
         async def trio_asyncio_loop():
-            async with trio_asyncio.open_loop() as loop:
+            async with variable_setter() as loop:
                 yield loop
 
         @pytest.mark.trio
