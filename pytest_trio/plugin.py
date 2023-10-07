@@ -162,9 +162,11 @@ class TrioFixture:
         self._pytest_kwargs = pytest_kwargs
         self._is_test = is_test
         # Previous and next fixture in terms of fixture topological order
-        # During set up, each fixture waits for previous_fixture to set its setup_done value 
+        # During set up, each fixture waits for
+        # its previous_fixture to set its setup_done value
         self.previous_fixture = None
-        # During tear down, each fixture waits for next_fixture to set its teardown_done value 
+        # During tear down, each fixture waits for
+        # itsnext_fixture to set its teardown_done value
         self.next_fixture = None
         # These attrs are all accessed from other objects:
         # Downstream users read this value.
@@ -183,14 +185,14 @@ class TrioFixture:
         deps = []
         for value in self._pytest_kwargs.values():
             if isinstance(value, TrioFixture):
-                for indirect_dependency in value.collect_dependencies():
-                    if indirect_dependency not in deps:
-                        deps.append(indirect_dependency)
+                for dependency in value.collect_dependencies():
+                    if dependency not in deps:
+                        deps.append(dependency)
         deps.append(self)
         return deps
-    
+
     def collect_register_dependencies(self):
-        # Collect dependencies then register previous and next fixture 
+        # Collect dependencies then register previous and next fixture
         # for each fixture (in terms of its topological order)
         deps = self.collect_dependencies()
         for index, dep in enumerate(deps):
@@ -198,7 +200,7 @@ class TrioFixture:
                 dep.previous_fixture = deps[index - 1]
             if index < len(deps) - 1:
                 dep.next_fixture = deps[index + 1]
-        return deps 
+        return deps
 
     @asynccontextmanager
     async def _fixture_manager(self, test_ctx):
@@ -235,7 +237,7 @@ class TrioFixture:
         async with self._fixture_manager(test_ctx) as nursery_fixture:
             if self.previous_fixture:
                 await self.previous_fixture.setup_done.wait()
-            
+
             # Resolve our kwargs
             resolved_kwargs = {}
             for name, value in self._pytest_kwargs.items():
@@ -317,7 +319,7 @@ class TrioFixture:
                 with trio.CancelScope(shield=True):
                     if self.next_fixture:
                         await self.next_fixture.teardown_done.wait()
-            
+
             # Do our teardown
             if isasyncgen(func_value):
                 try:

@@ -4,7 +4,7 @@ import pytest
 # Tests that:
 # - leaf_fix gets set up first and torn down last
 # - the two fix_{1,2} fixtures run their setup/teardown code
-#   in the expected order 
+#   in the expected order
 #   fix_1 setup -> fix_2 setup -> fix_2 teardown -> fix_1 teardown
 def test_fixture_basic_ordering(testdir):
     testdir.makepyfile(
@@ -78,7 +78,7 @@ def test_fixture_basic_ordering(testdir):
 def test_contextvars_modification_follows_fixture_ordering(testdir):
     """
     Tests that fixtures are being set up and tore down synchronously.
-    
+
     Specifically this ensures that fixtures that modify context variables
     doesn't lead to a weird contextvar states
 
@@ -90,16 +90,16 @@ def test_contextvars_modification_follows_fixture_ordering(testdir):
         import pytest
         from pytest_trio import trio_fixture
         import trio_asyncio
-        import asyncio 
+        import asyncio
         import trio
         class Resource():
             async def __aenter__(self):
-                await trio_asyncio.aio_as_trio(asyncio.sleep(0)) 
-            
+                await trio_asyncio.aio_as_trio(asyncio.sleep(0))
+
             async def __aexit__(self, *_):
                 # We need to yield and run another trio task
                 await trio.sleep(0.1)
-                await trio_asyncio.aio_as_trio(asyncio.sleep(0)) 
+                await trio_asyncio.aio_as_trio(asyncio.sleep(0))
 
         @pytest.fixture
         async def resource():
@@ -121,6 +121,7 @@ def test_contextvars_modification_follows_fixture_ordering(testdir):
 
     result = testdir.runpytest()
     result.assert_outcomes(passed=1)
+
 
 def test_nursery_fixture_teardown_ordering(testdir):
     testdir.makepyfile(
@@ -188,7 +189,7 @@ def test_error_collection(testdir):
     # crashing.
 
     # Although all fixtures are meant to crash, we only expect the first crash output
-    # since the teardown are synchronous. 
+    # since the teardown are synchronous.
     testdir.makepyfile(
         """
         import pytest
