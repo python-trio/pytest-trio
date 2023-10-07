@@ -357,11 +357,7 @@ def test_error_collection(testdir):
 
     result = testdir.runpytest()
     result.assert_outcomes(passed=1, failed=1)
-    result.stdout.fnmatch_lines_random(
-        [
-            "*CRASH_NONGEN*",
-        ]
-    )
+    result.stdout.fnmatch_lines(["*CRASH_NONGEN*"])
 
 
 @pytest.mark.parametrize("bgmode", ["nursery fixture", "manual nursery"])
