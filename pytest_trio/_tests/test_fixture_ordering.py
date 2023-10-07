@@ -81,7 +81,7 @@ def test_fixture_basic_ordering(testdir):
 def test_fixture_complicated_dag_ordering(testdir):
     """
     This test involves several fixtures forming a pretty
-    complicated dag, make sure we got the topological sort in order
+    complicated DAG, make sure we got the topological sort in order.
     """
     testdir.makepyfile(
         """
@@ -164,10 +164,10 @@ def test_contextvars_modification_follows_fixture_ordering(testdir):
     Tests that fixtures are being set up and tore down synchronously.
 
     Specifically this ensures that fixtures that modify context variables
-    doesn't lead to a weird contextvar states
+    doesn't lead to a race condition.
 
     Main assertion is that 2 async tasks in teardown (Resource.__aexit__)
-    doesn't crash
+    doesn't crash.
     """
     testdir.makepyfile(
         """
@@ -290,20 +290,21 @@ def test_error_message_upon_circular_dependency(testdir):
 
 
 def test_error_collection(testdir):
-    # We want to make sure that pytest ultimately reports all the different
+    # We want to make sure that pytest ultimately reports all the
     # exceptions. We call .upper() on all the exceptions so that we have
     # tokens to look for in the output corresponding to each exception, where
     # those tokens don't appear at all the source (so we can't get a false
     # positive due to pytest printing out the source file).
 
-    # We sleep at the beginning of all the fixtures b/c currently if any
-    # fixture crashes, we skip setting up unrelated fixtures whose setup
-    # hasn't even started yet. Maybe we shouldn't? But for now the sleeps make
-    # sure that all the fixtures have started before any of them start
-    # crashing.
+    # We sleep at the beginning of all the fixtures to give opportunity
+    # for all fixtures to start the setup. Maybe we shouldn't?
+    # But for now the sleeps make sure that all the fixtures have
+    # started setting up before any of them start crashing.
 
-    # Although all fixtures are meant to crash, we only expect the crash output
-    # of the first fixture in the teardown sequence since the teardown are synchronous.
+    # We only expect the crash output of the first fixture that crashes
+    # during the setup. This is because the setup are synchronous.
+    # Once the fixture has crashed the test contex, the others would
+    # immediately return and wouldn't even complete the setup process
     testdir.makepyfile(
         """
         import pytest
