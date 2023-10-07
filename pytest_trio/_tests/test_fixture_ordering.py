@@ -76,6 +76,86 @@ def test_fixture_basic_ordering(testdir):
     result.assert_outcomes(passed=1)
 
 
+# This test involves several fixtures forming
+# a pretty complicated dag, make sure we got the topological
+# sort in order
+def test_fixture_complicated_dag_ordering(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+        from pytest_trio import trio_fixture
+
+        setup_events = []
+        teardown_events = []
+
+        @trio_fixture
+        async def fix_6(fix_7):
+            setup_events.append("fix_6 setup")
+            yield
+            teardown_events.append("fix_6 teardown")
+
+        @pytest.fixture
+        async def fix_7():
+            setup_events.append("fix_7 setup")
+            yield
+            teardown_events.append("fix_7 teardown")
+            assert teardown_events == [
+                "fix_4 teardown",
+                "fix_5 teardown",
+                "fix_3 teardown",
+                "fix_1 teardown",
+                "fix_2 teardown",
+                "fix_6 teardown",
+                "fix_7 teardown",
+            ]
+        @pytest.fixture
+        async def fix_4(fix_5, fix_6, fix_7):
+            setup_events.append("fix_4 setup")
+            yield
+            teardown_events.append("fix_4 teardown")
+
+        @pytest.fixture
+        async def fix_5(fix_3):
+            setup_events.append("fix_5 setup")
+            yield
+            teardown_events.append("fix_5 teardown")
+
+        @pytest.fixture
+        async def fix_3(fix_1, fix_6):
+            setup_events.append("fix_3 setup")
+            yield
+            teardown_events.append("fix_3 teardown")
+
+        @pytest.fixture
+        async def fix_1(fix_2, fix_7):
+            setup_events.append("fix_1 setup")
+            yield
+            teardown_events.append("fix_1 teardown")
+
+        @pytest.fixture
+        async def fix_2(fix_6, fix_7):
+            setup_events.append("fix_2 setup")
+            yield
+            teardown_events.append("fix_2 teardown")
+
+        @pytest.mark.trio
+        async def test_root(fix_1, fix_2, fix_3, fix_4, fix_5, fix_6, fix_7):
+            assert setup_events == [
+                "fix_7 setup",
+                "fix_6 setup",
+                "fix_2 setup",
+                "fix_1 setup",
+                "fix_3 setup",
+                "fix_5 setup",
+                "fix_4 setup",
+            ]
+            assert teardown_events == []
+        """
+    )
+    result = testdir.runpytest()
+    result.assert_outcomes(passed=1)
+
+
 def test_contextvars_modification_follows_fixture_ordering(testdir):
     """
     Tests that fixtures are being set up and tore down synchronously.
@@ -173,6 +253,33 @@ def test_nursery_fixture_teardown_ordering(testdir):
 
     result = testdir.runpytest()
     result.assert_outcomes(passed=1)
+
+
+def test_error_message_upon_circular_dependency(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+        from pytest_trio import trio_fixture
+
+        @trio_fixture
+        def seq(leaf_fix):
+            pass
+
+        @pytest.fixture
+        async def leaf_fix(seq):
+            pass
+
+        @pytest.mark.trio
+        async def test_root(leaf_fix, seq):
+            pass
+        """
+    )
+
+    result = testdir.runpytest()
+    result.assert_outcomes(errors=1)
+    result.stdout.fnmatch_lines(
+        ["*recursive dependency involving fixture 'leaf_fix' detected*"]
+    )
 
 
 def test_error_collection(testdir):
