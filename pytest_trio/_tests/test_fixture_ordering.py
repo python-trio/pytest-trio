@@ -173,11 +173,11 @@ def test_contextvars_modification_follows_fixture_ordering(testdir):
     """
     testdir.makepyfile(
         """
+        import contextvars
         import pytest
         import trio
         from contextlib import asynccontextmanager
-
-        current_value = ContextVar("variable", default=None)
+        current_value = contextvars.ContextVar("variable", default=None)
 
         @asynccontextmanager
         async def variable_setter():
