@@ -75,6 +75,7 @@ def test_fixture_basic_ordering(testdir):
     result = testdir.runpytest()
     result.assert_outcomes(passed=1)
 
+
 def test_contextvars_modification_follows_fixture_ordering(testdir):
     """
     Tests that fixtures are being set up and tore down synchronously.
@@ -88,7 +89,6 @@ def test_contextvars_modification_follows_fixture_ordering(testdir):
     testdir.makepyfile(
         """
         import pytest
-        from pytest_trio import trio_fixture
         import trio_asyncio
         import asyncio
         import trio
