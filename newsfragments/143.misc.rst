@@ -1,0 +1,3 @@
+Move some Hypothesis support into Trio itself, via the new plugins system.
+As a result, ``pytest-trio`` will not import Hypothesis, while still
+integrating seamlessly if _you_ import it.
