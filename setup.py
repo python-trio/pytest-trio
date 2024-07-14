@@ -16,7 +16,7 @@ setup(
     packages=find_packages(),
     entry_points={"pytest11": ["trio = pytest_trio.plugin"]},
     install_requires=[
-        "trio >= 0.22.0",  # for ExceptionGroup support
+        "trio >= 0.25.1",  # for upstream Hypothesis integration
         "outcome >= 1.1.0",
         "pytest >= 7.2.0",  # for ExceptionGroup support
     ],
@@ -34,11 +34,11 @@ setup(
         "Operating System :: MacOS :: MacOS X",
         "Operating System :: Microsoft :: Windows",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
         "Topic :: System :: Networking",
