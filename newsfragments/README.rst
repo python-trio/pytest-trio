@@ -9,7 +9,7 @@ message and PR description, which are a description of the change as
 relevant to people working on the code itself.)
 
 Each file should be named like ``<ISSUE>.<TYPE>.rst``, where
-``<ISSUE>`` is an issue numbers, and ``<TYPE>`` is one of:
+``<ISSUE>`` is an issue number, and ``<TYPE>`` is one of:
 
 * ``feature``
 * ``bugfix``
