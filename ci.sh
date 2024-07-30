@@ -6,9 +6,6 @@ set -ex -o pipefail
 uname -a
 env | sort
 
-# See https://github.com/python-trio/trio/issues/334
-YAPF_VERSION=0.22.0
-
 # Curl's built-in retry system is not very robust; it gives up on lots of
 # network errors that we want to retry on. Wget might work better, but it's
 # not installed on azure pipelines's windows boxes. So... let's try some good
@@ -33,16 +30,16 @@ python -m pep517.build --source --out-dir dist/ .
 python -m pip install dist/*.tar.gz
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
-    pip install yapf==${YAPF_VERSION}
-    if ! yapf -rpd setup.py pytest_trio; then
+    pip install black
+    if ! black --check . ; then
         cat <<EOF
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 Formatting problems were found (listed above). To fix them, run
 
-   pip install yapf==${YAPF_VERSION}
-   yapf -rpi setup.py pytest_trio
+   pip install black
+   black .
 
 in your local checkout.
 

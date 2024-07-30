@@ -1,0 +1,1 @@
+Fix a bad interaction with custom pytest items that do not include an ``.obj`` attribute.
