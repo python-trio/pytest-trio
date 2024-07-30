@@ -1,4 +1,5 @@
 """pytest-trio implementation."""
+
 import sys
 from functools import wraps, partial
 from collections.abc import Coroutine, Generator
@@ -18,20 +19,6 @@ if sys.version_info[:2] < (3, 11):
 ################################################################
 # Basic setup
 ################################################################
-
-try:
-    from hypothesis import register_random
-except ImportError:  # pragma: no cover
-    pass
-else:
-    # On recent versions of Hypothesis, make the Trio scheduler deterministic
-    # even though it uses a module-scoped Random instance.  This works
-    # regardless of whether or not the random_module strategy is used.
-    register_random(trio._core._run._r)
-    # We also have to enable determinism, which is disabled by default
-    # due to a small performance impact - but fine to enable in testing.
-    # See https://github.com/python-trio/trio/pull/890/ for details.
-    trio._core._run._ALLOW_DETERMINISTIC_SCHEDULING = True
 
 
 def pytest_addoption(parser):
