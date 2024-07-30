@@ -11,7 +11,6 @@ def test_fixture_basic_ordering(testdir):
         import pytest
         from pytest_trio import trio_fixture
         from trio.testing import Sequencer
-        from async_generator import async_generator, yield_
 
         setup_events = []
         teardown_events = []
@@ -21,10 +20,9 @@ def test_fixture_basic_ordering(testdir):
             return Sequencer()
 
         @pytest.fixture
-        @async_generator
         async def leaf_fix():
             setup_events.append("leaf_fix setup")
-            await yield_()
+            yield
             teardown_events.append("leaf_fix teardown")
 
             assert teardown_events == [
@@ -36,26 +34,24 @@ def test_fixture_basic_ordering(testdir):
             ]
 
         @pytest.fixture
-        @async_generator
         async def fix_concurrent_1(leaf_fix, seq):
             async with seq(0):
                 setup_events.append("fix_concurrent_1 setup 1")
             async with seq(2):
                 setup_events.append("fix_concurrent_1 setup 2")
-            await yield_()
+            yield
             async with seq(4):
                 teardown_events.append("fix_concurrent_1 teardown 1")
             async with seq(6):
                 teardown_events.append("fix_concurrent_1 teardown 2")
 
         @pytest.fixture
-        @async_generator
         async def fix_concurrent_2(leaf_fix, seq):
             async with seq(1):
                 setup_events.append("fix_concurrent_2 setup 1")
             async with seq(3):
                 setup_events.append("fix_concurrent_2 setup 2")
-            await yield_()
+            yield
             async with seq(5):
                 teardown_events.append("fix_concurrent_2 teardown 1")
             async with seq(7):
@@ -148,26 +144,25 @@ def test_error_collection(testdir):
         import pytest
         from pytest_trio import trio_fixture
         import trio
-        from async_generator import async_generator, yield_
 
         test_started = False
 
         @trio_fixture
         async def crash_nongen():
-            await trio.sleep(2)
+            with trio.CancelScope(shield=True):
+                await trio.sleep(2)
             raise RuntimeError("crash_nongen".upper())
 
         @trio_fixture
-        @async_generator
         async def crash_early_agen():
-            await trio.sleep(2)
+            with trio.CancelScope(shield=True):
+                await trio.sleep(2)
             raise RuntimeError("crash_early_agen".upper())
-            await yield_()
+            yield
 
         @trio_fixture
-        @async_generator
         async def crash_late_agen():
-            await yield_()
+            yield
             raise RuntimeError("crash_late_agen".upper())
 
         async def crash(when, token):
@@ -221,12 +216,11 @@ def test_background_crash_cancellation_propagation(bgmode, testdir):
 
     crashyfix_using_manual_nursery = """
         @trio_fixture
-        @async_generator
         async def crashyfix():
             async with trio.open_nursery() as nursery:
                 nursery.start_soon(crashy)
                 with pytest.raises(trio.Cancelled):
-                    await yield_()
+                    yield
                 # We should be cancelled here
                 teardown_deadlines["crashyfix"] = trio.current_effective_deadline()
         """
@@ -241,7 +235,6 @@ def test_background_crash_cancellation_propagation(bgmode, testdir):
         import pytest
         from pytest_trio import trio_fixture
         import trio
-        from async_generator import async_generator, yield_
 
         teardown_deadlines = {}
         final_time = None
@@ -281,7 +274,9 @@ def test_background_crash_cancellation_propagation(bgmode, testdir):
                 "userfix": float("inf"),
             }
             assert final_time == 1
-        """.replace("CRASHYFIX_HERE", crashyfix)
+        """.replace(
+            "CRASHYFIX_HERE", crashyfix
+        )
     )
 
     result = testdir.runpytest()
@@ -296,27 +291,25 @@ def test_complex_cancel_interaction_regression(testdir):
         """
         import pytest
         import trio
-        from async_generator import asynccontextmanager, async_generator, yield_
+        from contextlib import asynccontextmanager
 
         async def die_soon():
             raise RuntimeError('oops'.upper())
 
         @asynccontextmanager
-        @async_generator
         async def async_finalizer():
             try:
-                await yield_()
+                yield
             finally:
                 await trio.sleep(0)
 
         @pytest.fixture
-        @async_generator
         async def fixture(nursery):
             async with trio.open_nursery() as nursery1:
                 async with async_finalizer():
                     async with trio.open_nursery() as nursery2:
                         nursery2.start_soon(die_soon)
-                        await yield_()
+                        yield
                         nursery1.cancel_scope.cancel()
 
         @pytest.mark.trio
@@ -327,6 +320,44 @@ def test_complex_cancel_interaction_regression(testdir):
 
     result = testdir.runpytest()
     result.assert_outcomes(passed=0, failed=1)
-    result.stdout.fnmatch_lines_random([
-        "*OOPS*",
-    ])
+    result.stdout.fnmatch_lines_random(["*OOPS*"])
+
+
+# Makes sure that
+# See https://github.com/python-trio/pytest-trio/issues/120
+def test_fixtures_crash_and_hang_concurrently(testdir):
+    testdir.makepyfile(
+        """
+        import trio
+        import pytest
+
+
+        @pytest.fixture
+        async def hanging_fixture():
+            print("hanging_fixture:start")
+            await trio.Event().wait()
+            yield
+            print("hanging_fixture:end")
+
+
+        @pytest.fixture
+        async def exploding_fixture():
+            print("exploding_fixture:start")
+            raise Exception
+            yield
+            print("exploding_fixture:end")
+
+
+        @pytest.mark.trio
+        async def test_fails_right_away(exploding_fixture):
+            ...
+
+
+        @pytest.mark.trio
+        async def test_fails_needs_some_scopes(exploding_fixture, hanging_fixture):
+            ...
+        """
+    )
+
+    result = testdir.runpytest()
+    result.assert_outcomes(passed=0, failed=2)

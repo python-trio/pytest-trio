@@ -5,6 +5,44 @@ Release history
 
 .. towncrier release notes start
 
+pytest-trio 0.8.0 (2022-11-01)
+------------------------------
+
+Features
+~~~~~~~~
+
+- If a test raises an ``ExceptionGroup`` (or nested ``ExceptionGroup``\ s) with only
+  a single 'leaf' exception from ``pytest.xfail()`` or ``pytest.skip()``\ , we now
+  unwrap it to have the desired effect on Pytest.  ``ExceptionGroup``\ s with two or
+  more leaf exceptions, even of the same type, are not changed and will be treated
+  as ordinary test failures.
+
+  See `pytest-dev/pytest#9680 <https://github.com/pytest-dev/pytest/issues/9680>`__
+  for design discussion.  This feature is particularly useful if you've enabled
+  `the new strict_exception_groups=True option
+  <https://trio.readthedocs.io/en/stable/reference-core.html#strict-versus-loose-exceptiongroup-semantics>`__. (`#104 <https://github.com/python-trio/pytest-trio/issues/104>`__)
+
+
+Bugfixes
+~~~~~~~~
+
+- Fix an issue where if two fixtures are being set up concurrently, and
+  one crashes and the other hangs, then the test as a whole would hang,
+  rather than being cancelled and unwound after the crash. (`#120 <https://github.com/python-trio/pytest-trio/issues/120>`__)
+
+
+Misc
+~~~~
+
+- Trio 0.22.0 deprecated ``MultiError`` in favor of the standard-library
+  (or `backported <https://pypi.org/project/exceptiongroup/>`__) ``ExceptionGroup``
+  type; ``pytest-trio`` now uses ``ExceptionGroup`` exclusively and therefore requires
+  Trio 0.22.0 or later. (`#128 <https://github.com/python-trio/pytest-trio/issues/128>`__)
+
+- Dropped support for end-of-life Python 3.6, and the ``async_generator`` library
+  necessary to support it, and started testing on Python 3.10 and 3.11. (`#129 <https://github.com/python-trio/pytest-trio/issues/129>`__)
+
+
 pytest-trio 0.7.0 (2020-10-15)
 ------------------------------
 

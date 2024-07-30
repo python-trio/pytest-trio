@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.6', '3.7', '3.8', '3.9']
+        python: ['3.7', '3.8', '3.9', '3.10', '3.11']
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -35,7 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.6', '3.6', '3.7', '3.8', '3.9', '3.6-dev', '3.7-dev', '3.8-dev', '3.9-dev']
+        python: ['pypy-3.7', '3.7', 'pypy-3.8', '3.8', 'pypy-3.9', '3.9', '3.10', '3.11']
         check_formatting: ['0']
         check_docs: ['0']
         extra_name: ['']
@@ -74,7 +74,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.6', '3.7', '3.8', '3.9']
+        python: ['3.7', '3.8', '3.9', '3.10', '3.11']
     steps:
       - name: Checkout
         uses: actions/checkout@v2

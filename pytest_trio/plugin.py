@@ -1,19 +1,19 @@
 """pytest-trio implementation."""
-from functools import wraps, partial
 import sys
-from traceback import format_exception
+from functools import wraps, partial
 from collections.abc import Coroutine, Generator
-from inspect import iscoroutinefunction, isgeneratorfunction
+from contextlib import asynccontextmanager
+from inspect import isasyncgen, isasyncgenfunction, iscoroutinefunction
 import contextvars
 import outcome
 import pytest
 import trio
 from trio.abc import Clock, Instrument
 from trio.testing import MockClock
-from async_generator import (
-    async_generator, yield_, asynccontextmanager, isasyncgen,
-    isasyncgenfunction
-)
+from _pytest.outcomes import Skipped, XFailed
+
+if sys.version_info[:2] < (3, 11):
+    from exceptiongroup import BaseExceptionGroup
 
 ################################################################
 # Basic setup
@@ -51,17 +51,9 @@ def pytest_addoption(parser):
 def pytest_configure(config):
     # So that it shows up in 'pytest --markers' output:
     config.addinivalue_line(
-        "markers", "trio: "
-        "mark the test as an async trio test; "
-        "it will be run using trio.run"
+        "markers",
+        "trio: mark the test as an async trio test; it will be run using trio.run",
     )
-
-
-@pytest.hookimpl(tryfirst=True)
-def pytest_exception_interact(node, call, report):
-    if issubclass(call.excinfo.type, trio.MultiError):
-        # TODO: not really elegant (pytest cannot output color with this hack)
-        report.longrepr = ''.join(format_exception(*call.excinfo._excinfo))
 
 
 ################################################################
@@ -121,11 +113,12 @@ def pytest_exception_interact(node, call, report):
 # If a fixture crashes, whether during setup, teardown, or in a background
 # task at any other point, then we mark the whole test run as "crashed". When
 # a run is "crashed", two things happen: (1) if any fixtures or the test
-# itself haven't started yet, then we don't start them. (2) if the test is
-# running, we cancel it. That's all. In particular, if a fixture has a
-# background crash, we don't propagate that to any other fixtures, we still
-# follow the normal teardown sequence, and so on – but since the test is
-# cancelled, the teardown sequence should start immediately.
+# itself haven't started yet, then we don't start them, and treat them as if
+# they've already exited. (2) if the test is running, we cancel it. That's
+# all. In particular, if a fixture has a background crash, we don't propagate
+# that to any other fixtures, we still follow the normal teardown sequence,
+# and so on – but since the test is cancelled, the teardown sequence should
+# start immediately.
 
 canary = contextvars.ContextVar("pytest-trio canary")
 
@@ -133,7 +126,12 @@ canary = contextvars.ContextVar("pytest-trio canary")
 class TrioTestContext:
     def __init__(self):
         self.crashed = False
-        self.test_cancel_scope = None
+        # This holds cancel scopes for whatever setup steps are currently
+        # running -- initially it's the fixtures that are in the middle of
+        # evaluating themselves, and then once fixtures are set up it's the
+        # test itself. Basically, at any given moment, it's the stuff we need
+        # to cancel if we want to start tearing down our fixture DAG.
+        self.active_cancel_scopes = set()
         self.fixtures_with_errors = set()
         self.fixtures_with_cancel = set()
         self.error_list = []
@@ -145,8 +143,8 @@ class TrioTestContext:
             self.error_list.append(exc)
             self.fixtures_with_errors.add(fixture)
         self.crashed = True
-        if self.test_cancel_scope is not None:
-            self.test_cancel_scope.cancel()
+        for cscope in self.active_cancel_scopes:
+            cscope.cancel()
 
 
 class TrioFixture:
@@ -189,13 +187,12 @@ class TrioFixture:
         return deps
 
     @asynccontextmanager
-    @async_generator
     async def _fixture_manager(self, test_ctx):
         __tracebackhide__ = True
         try:
             async with trio.open_nursery() as nursery_fixture:
                 try:
-                    await yield_(nursery_fixture)
+                    yield nursery_fixture
                 finally:
                     nursery_fixture.cancel_scope.cancel()
         except BaseException as exc:
@@ -240,16 +237,17 @@ class TrioFixture:
                 return
 
             # Run actual fixture setup step
+            # If another fixture crashes while we're in the middle of setting
+            # up, we want to be cancelled immediately, so we'll save an
+            # encompassing cancel scope where self._crash can find it.
+            test_ctx.active_cancel_scopes.add(nursery_fixture.cancel_scope)
             if self._is_test:
-                # Tests are exactly like fixtures, except that they (1) have
-                # to be regular async functions, (2) if there's a crash, we
-                # should cancel them.
+                # Tests are exactly like fixtures, except that they to be
+                # regular async functions.
                 assert not self.user_done_events
                 func_value = None
-                with trio.CancelScope() as cancel_scope:
-                    test_ctx.test_cancel_scope = cancel_scope
-                    assert not test_ctx.crashed
-                    await self._func(**resolved_kwargs)
+                assert not test_ctx.crashed
+                await self._func(**resolved_kwargs)
             else:
                 func_value = self._func(**resolved_kwargs)
                 if isinstance(func_value, Coroutine):
@@ -261,8 +259,16 @@ class TrioFixture:
                 else:
                     # Regular synchronous function
                     self.fixture_value = func_value
+            # Now that we're done setting up, we don't want crashes to cancel
+            # us immediately; instead we want them to cancel our downstream
+            # dependents, and then eventually let us clean up normally. So
+            # remove this from the set of cancel scopes affected by self._crash.
+            test_ctx.active_cancel_scopes.remove(nursery_fixture.cancel_scope)
 
-            # Notify our users that self.fixture_value is ready
+            # self.fixture_value is ready, so notify users that they can
+            # continue. (Or, maybe we crashed and were cancelled, in which
+            # case our users will check test_ctx.crashed and immediately exit,
+            # which is fine too.)
             self.setup_done.set()
 
             # Wait for users to be finished
@@ -328,19 +334,35 @@ def _trio_test(run):
         @wraps(fn)
         def wrapper(**kwargs):
             __tracebackhide__ = True
-            clocks = [c for c in kwargs.values() if isinstance(c, Clock)]
+            clocks = {k: c for k, c in kwargs.items() if isinstance(c, Clock)}
             if not clocks:
                 clock = None
             elif len(clocks) == 1:
-                clock = clocks[0]
+                clock = list(clocks.values())[0]
             else:
-                raise ValueError("too many clocks spoil the broth!")
-            instruments = [
-                i for i in kwargs.values() if isinstance(i, Instrument)
-            ]
-            return run(
-                partial(fn, **kwargs), clock=clock, instruments=instruments
-            )
+                raise ValueError(
+                    f"Expected at most one Clock in kwargs, got {clocks!r}"
+                )
+            instruments = [i for i in kwargs.values() if isinstance(i, Instrument)]
+            try:
+                return run(partial(fn, **kwargs), clock=clock, instruments=instruments)
+            except BaseExceptionGroup as eg:
+                queue = [eg]
+                leaves = []
+                while queue:
+                    ex = queue.pop()
+                    if isinstance(ex, BaseExceptionGroup):
+                        queue.extend(ex.exceptions)
+                    else:
+                        leaves.append(ex)
+                if len(leaves) == 1:
+                    if isinstance(leaves[0], XFailed):
+                        pytest.xfail()
+                    if isinstance(leaves[0], Skipped):
+                        pytest.skip()
+                # Since our leaf exceptions don't consist of exactly one 'magic'
+                # skipped or xfailed exception, re-raise the whole group.
+                raise
 
         return wrapper
 
@@ -354,7 +376,7 @@ def _trio_test_runner_factory(item, testfunc=None):
         testfunc = item.obj
 
         for marker in item.iter_markers("trio"):
-            maybe_run = marker.kwargs.get('run')
+            maybe_run = marker.kwargs.get("run")
             if maybe_run is not None:
                 run = maybe_run
                 break
@@ -362,15 +384,13 @@ def _trio_test_runner_factory(item, testfunc=None):
             # no marker found that explicitly specifiers the runner so use config
             run = choose_run(config=item.config)
 
-    if getattr(testfunc, '_trio_test_runner_wrapped', False):
+    if getattr(testfunc, "_trio_test_runner_wrapped", False):
         # We have already wrapped this, perhaps because we combined Hypothesis
         # with pytest.mark.parametrize
         return testfunc
 
     if not iscoroutinefunction(testfunc):
-        pytest.fail(
-            'test function `%r` is marked trio but is not async' % item
-        )
+        pytest.fail("test function `%r` is marked trio but is not async" % item)
 
     @_trio_test(run=run)
     async def _bootstrap_fixtures_and_run_test(**kwargs):
@@ -378,10 +398,7 @@ def _trio_test_runner_factory(item, testfunc=None):
 
         test_ctx = TrioTestContext()
         test = TrioFixture(
-            "<test {!r}>".format(testfunc.__name__),
-            testfunc,
-            kwargs,
-            is_test=True
+            "<test {!r}>".format(testfunc.__name__), testfunc, kwargs, is_test=True
         )
 
         contextvars_ctx = contextvars.copy_context()
@@ -405,8 +422,12 @@ def _trio_test_runner_factory(item, testfunc=None):
                     )
                 )
 
-        if test_ctx.error_list:
-            raise trio.MultiError(test_ctx.error_list)
+        if len(test_ctx.error_list) == 1:
+            raise test_ctx.error_list[0]
+        elif test_ctx.error_list:
+            raise BaseExceptionGroup(
+                "errors in async test and trio fixtures", test_ctx.error_list
+            )
 
     _bootstrap_fixtures_and_run_test._trio_test_runner_wrapped = True
     return _bootstrap_fixtures_and_run_test
@@ -420,16 +441,15 @@ def _trio_test_runner_factory(item, testfunc=None):
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_call(item):
     if item.get_closest_marker("trio") is not None:
-        if hasattr(item.obj, 'hypothesis'):
+        if hasattr(item.obj, "hypothesis"):
             # If it's a Hypothesis test, we go in a layer.
             item.obj.hypothesis.inner_test = _trio_test_runner_factory(
                 item, item.obj.hypothesis.inner_test
             )
-        elif getattr(item.obj, 'is_hypothesis_test',
-                     False):  # pragma: no cover
+        elif getattr(item.obj, "is_hypothesis_test", False):  # pragma: no cover
             pytest.fail(
-                'test function `%r` is using Hypothesis, but pytest-trio '
-                'only works with Hypothesis 3.64.0 or later.' % item
+                "test function `%r` is using Hypothesis, but pytest-trio "
+                "only works with Hypothesis 3.64.0 or later." % item
             )
         else:
             item.obj = _trio_test_runner_factory(item)
@@ -448,8 +468,7 @@ def trio_fixture(func):
 def _is_trio_fixture(func, coerce_async, kwargs):
     if getattr(func, "_force_trio_fixture", False):
         return True
-    if (coerce_async and
-        (iscoroutinefunction(func) or isasyncgenfunction(func))):
+    if coerce_async and (iscoroutinefunction(func) or isasyncgenfunction(func)):
         return True
     if any(isinstance(value, TrioFixture) for value in kwargs.values()):
         return True
@@ -457,16 +476,13 @@ def _is_trio_fixture(func, coerce_async, kwargs):
 
 
 def handle_fixture(fixturedef, request, force_trio_mode):
-    is_trio_test = (request.node.get_closest_marker("trio") is not None)
+    is_trio_test = request.node.get_closest_marker("trio") is not None
     if force_trio_mode:
         is_trio_mode = True
     else:
         is_trio_mode = request.node.config.getini("trio_mode")
-    coerce_async = (is_trio_test or is_trio_mode)
-    kwargs = {
-        name: request.getfixturevalue(name)
-        for name in fixturedef.argnames
-    }
+    coerce_async = is_trio_test or is_trio_mode
+    kwargs = {name: request.getfixturevalue(name) for name in fixturedef.argnames}
     if _is_trio_fixture(fixturedef.func, coerce_async, kwargs):
         if request.scope != "function":
             raise RuntimeError("Trio fixtures must be function-scope")
@@ -492,6 +508,9 @@ def pytest_fixture_setup(fixturedef, request):
 
 def automark(items, run=trio.run):
     for item in items:
+        if not hasattr(item, "obj"):
+            # Rare and a little strange, but happens with some doctest-like plugins
+            continue
         if hasattr(item.obj, "hypothesis"):
             test_func = item.obj.hypothesis.inner_test
         else:
@@ -507,11 +526,12 @@ def choose_run(config):
         run = trio.run
     elif run_string == "qtrio":
         import qtrio
+
         run = qtrio.run
     else:
         raise ValueError(
-            f"{run_string!r} not valid for 'trio_run' config." +
-            "  Must be one of: trio, qtrio"
+            f"{run_string!r} not valid for 'trio_run' config."
+            + "  Must be one of: trio, qtrio"
         )
 
     return run
