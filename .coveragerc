@@ -1,9 +1,0 @@
-[run]
-branch=True
-source=pytest_trio
-
-[report]
-precision = 1
-exclude_lines =
-  pragma: no cover
-  abc.abstractmethod
