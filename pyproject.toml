@@ -1,3 +1,67 @@
+[build-system]
+requires = ["setuptools >= 64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pytest-trio"
+dynamic = ["version"]
+authors = [
+  { name="Emmanuel Leblond", email="emmanuel.leblond@gmail.com" },
+]
+description = "Pytest plugin for trio"
+readme = {file = "README.md", content-type = "text/markdown"}
+license = {file = "LICENSE"}
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: OS Independent",
+    "Topic :: System :: Networking",
+    "Topic :: Software Development :: Testing",
+    "Framework :: Hypothesis",
+    "Framework :: Pytest",
+    "Framework :: Trio",
+]
+keywords = [
+    "async",
+    "pytest",
+    "testing",
+    "trio",
+]
+dependencies = [
+    "trio >= 0.25.1",  # for upstream Hypothesis integration
+    "outcome >= 1.1.0",
+    "pytest >= 7.2.0",  # for ExceptionGroup support
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "pytest_trio._version.__version__"}
+
+[project.urls]
+"Homepage" = "https://github.com/python-trio/pytest-trio"
+"Source" = "https://github.com/python-trio/pytest-trio"
+"Bug Tracker" = "https://github.com/python-trio/pytest-trio/issues"
+
+[project.entry-points.pytest11]
+trio = "pytest_trio.plugin"
+
+[tool.setuptools.packages]
+find = {namespaces = false}
+
 [tool.towncrier]
 package = "pytest_trio"
 filename = "docs/source/history.rst"
@@ -5,3 +69,30 @@ directory = "newsfragments"
 title_format = "pytest-trio {version} ({project_date})"
 underlines = ["-", "~", "^"]
 issue_format = "`#{issue} <https://github.com/python-trio/pytest-trio/issues/{issue}>`__"
+
+[tool.coverage.run]
+branch = true
+source_pkgs = ["pytest_trio"]
+
+[tool.coverage.report]
+precision = 1
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "abc.abstractmethod",
+    "if TYPE_CHECKING.*:",
+    "if _t.TYPE_CHECKING:",
+    "if t.TYPE_CHECKING:",
+    "@overload",
+    'class .*\bProtocol\b.*\):',
+    "raise NotImplementedError",
+]
+partial_branches = [
+    "pragma: no branch",
+    "if not TYPE_CHECKING:",
+    "if not _t.TYPE_CHECKING:",
+    "if not t.TYPE_CHECKING:",
+    "if .* or not TYPE_CHECKING:",
+    "if .* or not _t.TYPE_CHECKING:",
+    "if .* or not t.TYPE_CHECKING:",
+]
