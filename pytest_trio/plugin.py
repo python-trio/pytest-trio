@@ -30,7 +30,7 @@ def pytest_addoption(parser):
     )
     parser.addini(
         "trio_run",
-        "what runner should pytest-trio use? [trio, qtrio]",
+        "what runner should pytest-trio use? [trio, qtrio, trio_asyncio]",
         default="trio",
     )
 
@@ -515,10 +515,14 @@ def choose_run(config):
         import qtrio
 
         run = qtrio.run
+    elif run_string == "trio_asyncio":
+        import trio_asyncio
+
+        run = trio_asyncio.run
     else:
         raise ValueError(
             f"{run_string!r} not valid for 'trio_run' config."
-            + "  Must be one of: trio, qtrio"
+            + "  Must be one of: trio, qtrio, trio_asyncio"
         )
 
     return run

@@ -55,6 +55,10 @@ def run(*args, **kwargs):
 """
 
 
+# Fake trio_asyncio module.
+trio_asyncio_text = qtrio_text
+
+
 def test_trio_mode_and_qtrio_run_configuration(testdir):
     testdir.makefile(".ini", pytest="[pytest]\ntrio_mode = true\ntrio_run = qtrio\n")
 
@@ -109,6 +113,27 @@ def test_qtrio_just_run_configuration(testdir):
     async def test_fake_qtrio_used():
         await trio.sleep(0)
         assert qtrio.fake_used
+    """
+    testdir.makepyfile(test_text)
+
+    result = testdir.runpytest()
+    result.assert_outcomes(passed=1)
+
+
+def test_trio_asyncio_just_run_configuration(testdir):
+    testdir.makefile(".ini", pytest="[pytest]\ntrio_run = trio_asyncio\n")
+
+    testdir.makepyfile(trio_asyncio=trio_asyncio_text)
+
+    test_text = """
+    import pytest
+    import trio_asyncio
+    import trio
+
+    @pytest.mark.trio
+    async def test_fake_trio_asyncio_used():
+        await trio.sleep(0)
+        assert trio_asyncio.fake_used
     """
     testdir.makepyfile(test_text)
 
