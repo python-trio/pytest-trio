@@ -23,11 +23,11 @@ function curl-harder() {
 }
 
 
-python -m pip install -U pip setuptools wheel
+python -m pip install -U pip build
 python -m pip --version
 
-python setup.py sdist --formats=zip
-python -m pip install dist/*.zip
+python -m build
+python -m pip install dist/*.whl
 
 if [ "$CHECK_FORMATTING" = "1" ]; then
     pip install black
