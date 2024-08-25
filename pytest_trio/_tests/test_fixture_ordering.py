@@ -1,11 +1,14 @@
 import pytest
 
 
-# Tests that:
-# - leaf_fix gets set up first and torn down last
-# - the two fix_concurrent_{1,2} fixtures run their setup/teardown code
-#   at the same time -- their execution can be interleaved.
 def test_fixture_basic_ordering(testdir):
+    """
+    Tests that:
+    - leaf_fix gets set up first and torn down last
+    - the two fix_{1,2} fixtures run their setup/teardown code
+      in the expected order
+      fix_1 setup -> fix_2 setup -> fix_2 teardown -> fix_1 teardown
+    """
     testdir.makepyfile(
         """
         import pytest
@@ -26,48 +29,189 @@ def test_fixture_basic_ordering(testdir):
             teardown_events.append("leaf_fix teardown")
 
             assert teardown_events == [
-                "fix_concurrent_1 teardown 1",
-                "fix_concurrent_2 teardown 1",
-                "fix_concurrent_1 teardown 2",
-                "fix_concurrent_2 teardown 2",
+                "fix_2 teardown 1",
+                "fix_2 teardown 2",
+                "fix_1 teardown 1",
+                "fix_1 teardown 2",
                 "leaf_fix teardown",
             ]
 
         @pytest.fixture
-        async def fix_concurrent_1(leaf_fix, seq):
+        async def fix_1(leaf_fix, seq):
             async with seq(0):
-                setup_events.append("fix_concurrent_1 setup 1")
-            async with seq(2):
-                setup_events.append("fix_concurrent_1 setup 2")
+                setup_events.append("fix_1 setup 1")
+            async with seq(1):
+                setup_events.append("fix_1 setup 2")
             yield
-            async with seq(4):
-                teardown_events.append("fix_concurrent_1 teardown 1")
             async with seq(6):
-                teardown_events.append("fix_concurrent_1 teardown 2")
+                teardown_events.append("fix_1 teardown 1")
+            async with seq(7):
+                teardown_events.append("fix_1 teardown 2")
 
         @pytest.fixture
-        async def fix_concurrent_2(leaf_fix, seq):
-            async with seq(1):
-                setup_events.append("fix_concurrent_2 setup 1")
+        async def fix_2(leaf_fix, seq):
+            async with seq(2):
+                setup_events.append("fix_2 setup 1")
             async with seq(3):
-                setup_events.append("fix_concurrent_2 setup 2")
+                setup_events.append("fix_2 setup 2")
             yield
+            async with seq(4):
+                teardown_events.append("fix_2 teardown 1")
             async with seq(5):
-                teardown_events.append("fix_concurrent_2 teardown 1")
-            async with seq(7):
-                teardown_events.append("fix_concurrent_2 teardown 2")
+                teardown_events.append("fix_2 teardown 2")
 
         @pytest.mark.trio
-        async def test_root(fix_concurrent_1, fix_concurrent_2):
+        async def test_root(fix_1, fix_2):
             assert setup_events == [
                 "leaf_fix setup",
-                "fix_concurrent_1 setup 1",
-                "fix_concurrent_2 setup 1",
-                "fix_concurrent_1 setup 2",
-                "fix_concurrent_2 setup 2",
+                "fix_1 setup 1",
+                "fix_1 setup 2",
+                "fix_2 setup 1",
+                "fix_2 setup 2",
             ]
             assert teardown_events == []
 
+        """
+    )
+
+    result = testdir.runpytest()
+    result.assert_outcomes(passed=1)
+
+
+def test_fixture_complicated_dag_ordering(testdir):
+    """
+    This test involves several fixtures forming a pretty
+    complicated DAG, make sure we got the topological sort in order.
+    """
+    testdir.makepyfile(
+        """
+        import pytest
+        from pytest_trio import trio_fixture
+
+        setup_events = []
+        teardown_events = []
+
+        @trio_fixture
+        async def fix_6(fix_7):
+            setup_events.append("fix_6 setup")
+            yield
+            teardown_events.append("fix_6 teardown")
+
+        @pytest.fixture
+        async def fix_7():
+            setup_events.append("fix_7 setup")
+            yield
+            teardown_events.append("fix_7 teardown")
+            assert teardown_events == [
+                "fix_4 teardown",
+                "fix_5 teardown",
+                "fix_3 teardown",
+                "fix_1 teardown",
+                "fix_2 teardown",
+                "fix_6 teardown",
+                "fix_7 teardown",
+            ]
+        @pytest.fixture
+        async def fix_4(fix_5, fix_6, fix_7):
+            setup_events.append("fix_4 setup")
+            yield
+            teardown_events.append("fix_4 teardown")
+
+        @pytest.fixture
+        async def fix_5(fix_3):
+            setup_events.append("fix_5 setup")
+            yield
+            teardown_events.append("fix_5 teardown")
+
+        @pytest.fixture
+        async def fix_3(fix_1, fix_6):
+            setup_events.append("fix_3 setup")
+            yield
+            teardown_events.append("fix_3 teardown")
+
+        @pytest.fixture
+        async def fix_1(fix_2, fix_7):
+            setup_events.append("fix_1 setup")
+            yield
+            teardown_events.append("fix_1 teardown")
+
+        @pytest.fixture
+        async def fix_2(fix_6, fix_7):
+            setup_events.append("fix_2 setup")
+            yield
+            teardown_events.append("fix_2 teardown")
+
+        @pytest.mark.trio
+        async def test_root(fix_1, fix_2, fix_3, fix_4, fix_5, fix_6, fix_7):
+            assert setup_events == [
+                "fix_7 setup",
+                "fix_6 setup",
+                "fix_2 setup",
+                "fix_1 setup",
+                "fix_3 setup",
+                "fix_5 setup",
+                "fix_4 setup",
+            ]
+            assert teardown_events == []
+        """
+    )
+    result = testdir.runpytest()
+    result.assert_outcomes(passed=1)
+
+
+def test_contextvars_modification_follows_fixture_ordering(testdir):
+    """
+    Tests that fixtures are being set up and tore down synchronously.
+
+    Specifically this ensures that fixtures that modify context variables
+    doesn't lead to a race condition.
+    This tries to simluate thing like trio_asyncio.open_loop that modifies
+    the contextvar.
+
+    Main assertion is that 2 async tasks in teardown (Resource.__aexit__)
+    doesn't crash.
+    """
+    testdir.makepyfile(
+        """
+        import contextvars
+        import pytest
+        import trio
+        from contextlib import asynccontextmanager
+        current_value = contextvars.ContextVar("variable", default=None)
+
+        @asynccontextmanager
+        async def variable_setter():
+            old_value = current_value.set("value")
+            try:
+                await trio.sleep(0)
+                yield
+            finally:
+                current_value.reset(old_value)
+
+        class Resource():
+            async def __aenter__(self):
+                await trio.sleep(0)
+
+            async def __aexit__(self, *_):
+                # We need to yield and run another trio task
+                await trio.sleep(0)
+                assert current_value.get() is not None
+
+        @pytest.fixture
+        async def resource():
+            async with variable_setter() as loop:
+                async with Resource():
+                    yield
+
+        @pytest.fixture
+        async def trio_asyncio_loop():
+            async with variable_setter() as loop:
+                yield loop
+
+        @pytest.mark.trio
+        async def test_root(trio_asyncio_loop, resource):
+            await trio.sleep(0)
+            assert True
         """
     )
 
@@ -127,18 +271,53 @@ def test_nursery_fixture_teardown_ordering(testdir):
     result.assert_outcomes(passed=1)
 
 
+def test_error_message_upon_circular_dependency(testdir):
+    """
+    Make sure that the error message is produced if there's
+    a circular dependency on the fixtures
+    """
+    testdir.makepyfile(
+        """
+        import pytest
+        from pytest_trio import trio_fixture
+
+        @trio_fixture
+        def seq(leaf_fix):
+            pass
+
+        @pytest.fixture
+        async def leaf_fix(seq):
+            pass
+
+        @pytest.mark.trio
+        async def test_root(leaf_fix, seq):
+            pass
+        """
+    )
+
+    result = testdir.runpytest()
+    result.assert_outcomes(errors=1)
+    result.stdout.fnmatch_lines(
+        ["*recursive dependency involving fixture 'leaf_fix' detected*"]
+    )
+
+
 def test_error_collection(testdir):
-    # We want to make sure that pytest ultimately reports all the different
+    # We want to make sure that pytest ultimately reports all the
     # exceptions. We call .upper() on all the exceptions so that we have
     # tokens to look for in the output corresponding to each exception, where
     # those tokens don't appear at all the source (so we can't get a false
     # positive due to pytest printing out the source file).
 
-    # We sleep at the beginning of all the fixtures b/c currently if any
-    # fixture crashes, we skip setting up unrelated fixtures whose setup
-    # hasn't even started yet. Maybe we shouldn't? But for now the sleeps make
-    # sure that all the fixtures have started before any of them start
-    # crashing.
+    # We sleep at the beginning of all the fixtures to give opportunity
+    # for all fixtures to start the setup. Maybe we shouldn't?
+    # But for now the sleeps make sure that all the fixtures have
+    # started setting up before any of them start crashing.
+
+    # We only expect the crash output of the first fixture that crashes
+    # during the setup. This is because the setup are synchronous.
+    # Once the fixture has crashed the test contex, the others would
+    # immediately return and wouldn't even complete the setup process
     testdir.makepyfile(
         """
         import pytest
@@ -191,15 +370,7 @@ def test_error_collection(testdir):
 
     result = testdir.runpytest()
     result.assert_outcomes(passed=1, failed=1)
-    result.stdout.fnmatch_lines_random(
-        [
-            "*CRASH_NONGEN*",
-            "*CRASH_EARLY_AGEN*",
-            "*CRASH_LATE_AGEN*",
-            "*CRASH_BACKGROUND_EARLY*",
-            "*CRASH_BACKGROUND_LATE*",
-        ]
-    )
+    result.stdout.fnmatch_lines(["*CRASH_NONGEN*"])
 
 
 @pytest.mark.parametrize("bgmode", ["nursery fixture", "manual nursery"])
