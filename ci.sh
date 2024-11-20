@@ -66,7 +66,7 @@ else
 
     # These environment variables ensure that the import of the pytest-trio plugin is covered
     # even if pytest-trio is loaded before pytest-cov. See https://pytest-cov.readthedocs.io/en/latest/plugins.html
-    env COV_CORE_SOURCE=pytest_trio COV_CORE_CONFIG=.coveragerc COV_CORE_DATAFILE=.coverage pytest
+    env COV_CORE_SOURCE=pytest_trio COV_CORE_CONFIG=.coveragerc COV_CORE_DATAFILE=.coverage pytest -ra --verbose --cov
 
     # The codecov docs recommend something like 'bash <(curl ...)' to pipe the
     # script directly into bash as its being downloaded. But, the codecov
