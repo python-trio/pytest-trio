@@ -297,6 +297,7 @@ class TrioFixture:
                 except StopAsyncIteration:
                     pass
                 else:
+                    __tracebackhide__ = False
                     raise RuntimeError("too many yields in fixture")
             elif isinstance(func_value, Generator):
                 try:
@@ -304,6 +305,7 @@ class TrioFixture:
                 except StopIteration:
                     pass
                 else:
+                    __tracebackhide__ = False
                     raise RuntimeError("too many yields in fixture")
 
 
@@ -327,6 +329,7 @@ def _trio_test(run):
             elif len(clocks) == 1:
                 clock = list(clocks.values())[0]
             else:
+                __tracebackhide__ = False
                 raise ValueError(
                     f"Expected at most one Clock in kwargs, got {clocks!r}"
                 )
@@ -334,6 +337,7 @@ def _trio_test(run):
             try:
                 return run(partial(fn, **kwargs), clock=clock, instruments=instruments)
             except BaseExceptionGroup as eg:
+                __tracebackhide__ = False
                 queue = [eg]
                 leaves = []
                 while queue:
@@ -410,8 +414,10 @@ def _trio_test_runner_factory(item, testfunc=None):
                 )
 
         if len(test_ctx.error_list) == 1:
+            __tracebackhide__ = False
             raise test_ctx.error_list[0]
         elif test_ctx.error_list:
+            __tracebackhide__ = False
             raise BaseExceptionGroup(
                 "errors in async test and trio fixtures", test_ctx.error_list
             )
