@@ -13,14 +13,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        python: ['3.10', '3.11', '3.12', '3.13', '3.14']
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
-      - name: Setup python
-        uses: actions/setup-python@v2
+        uses: actions/checkout@v5
+      - name: Setup Python ${{ matrix.python }}'
+        uses: actions/setup-python@v6
         with:
           python-version: '${{ matrix.python }}'
+          allow-prereleases: true
       - name: Run tests
         run: ./ci.sh
         shell: bash
@@ -35,30 +36,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['pypy-3.8', '3.8', 'pypy-3.9', '3.9', 'pypy-3.10', '3.10', '3.11', '3.12']
+        python: ['3.10', '3.11', '3.12', '3.13', '3.14', 'pypy-3.11']
         check_formatting: ['0']
         check_docs: ['0']
         extra_name: ['']
         include:
-          - python: '3.9'
+          - python: '3.x'
             check_formatting: '1'
             extra_name: ', check formatting'
-          - python: '3.9'
+          - python: '3.12'  # sphinx-build: cgi module was removed in 3.13
             check_docs: '1'
             extra_name: ', check docs'
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
-      - name: Setup python
-        uses: actions/setup-python@v2
-        if: "!endsWith(matrix.python, '-dev')"
+        uses: actions/checkout@v5
+      - name: Setup Python ${{ matrix.python }}
+        uses: actions/setup-python@v6
         with:
           python-version: '${{ matrix.python }}'
-      - name: Setup python (dev)
-        uses: deadsnakes/action@v2.0.2
-        if: endsWith(matrix.python, '-dev')
-        with:
-          python-version: '${{ matrix.python }}'
+          allow-prereleases: true
       - name: Run tests
         run: ./ci.sh
         env:
@@ -74,14 +70,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        python: ['3.10', '3.11', '3.12', '3.13', '3.14']
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
-      - name: Setup python
-        uses: actions/setup-python@v2
+        uses: actions/checkout@v5
+      - name: Setup Python ${{ matrix.python }}
+        uses: actions/setup-python@v6
         with:
           python-version: '${{ matrix.python }}'
+          allow-prereleases: true
       - name: Run tests
         run: ./ci.sh
         env:
