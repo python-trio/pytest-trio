@@ -96,3 +96,14 @@ partial_branches = [
     "if .* or not _t.TYPE_CHECKING:",
     "if .* or not t.TYPE_CHECKING:",
 ]
+
+[tool.ruff]
+lint.extend-select = [
+    "ASYNC",  # flake8-async
+    "C4",     # flake8-comprehensions
+    "PERF",   # Perflint
+    "PT",     # flake8-pytest-style
+]
+lint.ignore = [
+    "ASYNC115",  # `trio.lowlevel.checkpoint()` instead of `trio.sleep(0)`
+]

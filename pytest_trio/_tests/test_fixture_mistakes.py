@@ -1,5 +1,5 @@
-import pytest
-from pytest_trio import trio_fixture
+import pytest  # noqa: F401
+from pytest_trio import trio_fixture  # noqa: F401
 
 from .helpers import enable_trio_mode
 

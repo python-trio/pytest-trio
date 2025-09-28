@@ -283,7 +283,7 @@ class TrioFixture:
                 for event in self.user_done_events:
                     await event.wait()
             except BaseException as exc:
-                assert isinstance(exc, trio.Cancelled)
+                assert isinstance(exc, trio.Cancelled)  # noqa: PT017
                 yield_outcome = outcome.Error(exc)
                 test_ctx.crash(self, None)
                 with trio.CancelScope(shield=True):
