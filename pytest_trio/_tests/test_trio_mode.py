@@ -1,4 +1,4 @@
-import pytest
+import pytest  # noqa: F401
 
 from .helpers import enable_trio_mode
 
@@ -139,7 +139,7 @@ def test_invalid_trio_run_fails(testdir):
 
 
 def test_closest_explicit_run_wins(testdir):
-    testdir.makefile(".ini", pytest=f"[pytest]\ntrio_mode = true\ntrio_run = trio\n")
+    testdir.makefile(".ini", pytest="[pytest]\ntrio_mode = true\ntrio_run = trio\n")
     testdir.makepyfile(qtrio=qtrio_text)
 
     test_text = """
@@ -159,7 +159,7 @@ def test_closest_explicit_run_wins(testdir):
 
 
 def test_ini_run_wins_with_blank_marker(testdir):
-    testdir.makefile(".ini", pytest=f"[pytest]\ntrio_mode = true\ntrio_run = qtrio\n")
+    testdir.makefile(".ini", pytest="[pytest]\ntrio_mode = true\ntrio_run = qtrio\n")
     testdir.makepyfile(qtrio=qtrio_text)
 
     test_text = """
