@@ -101,7 +101,7 @@ author = "The pytest-trio authors"
 # built documents.
 #
 # The short X.Y version.
-import pytest_trio
+import pytest_trio  # noqa: E402
 
 version = pytest_trio.__version__
 # The full version, including alpha/beta/rc tags.
@@ -143,7 +143,7 @@ suppress_warnings = ["epub.unknown_project_files"]
 # We have to set this ourselves, not only because it's useful for local
 # testing, but also because if we don't then RTD will throw away our
 # html_theme_options.
-import sphinx_rtd_theme
+import sphinx_rtd_theme  # noqa: E402
 
 html_theme = "sphinx_rtd_theme"
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
