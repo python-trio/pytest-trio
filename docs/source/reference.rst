@@ -393,7 +393,8 @@ such as via :ref:`guest mode <trio:guest-mode>`, it can be used with
 pytest-trio as well.  Setting ``trio_run`` in the pytest configuration
 makes your choice the global default for both tests explicitly marked
 with ``@pytest.mark.trio`` and those automatically marked by Trio mode.
-``trio_run`` presently supports ``trio`` and ``qtrio``.
+``trio_run`` presently supports ``trio``, ``qtrio``, and
+``trio_asyncio``.
 
 .. code-block:: ini
 
