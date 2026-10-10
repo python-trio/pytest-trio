@@ -1,7 +1,8 @@
-import pytest
-from pytest_trio import trio_fixture
-
 import contextvars
+
+import pytest
+
+from pytest_trio import trio_fixture
 
 cv = contextvars.ContextVar("cv", default=None)
 

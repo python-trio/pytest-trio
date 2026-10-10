@@ -1,6 +1,7 @@
 import pytest
-from pytest_trio import trio_fixture
 import trio
+
+from pytest_trio import trio_fixture
 
 
 @trio_fixture

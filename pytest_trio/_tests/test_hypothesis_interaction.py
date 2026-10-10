@@ -1,6 +1,7 @@
 import pytest
 import trio
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from pytest_trio.plugin import _trio_test_runner_factory
 
