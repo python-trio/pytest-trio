@@ -4,7 +4,8 @@ https://stackoverflow.com/questions/25243482/how-to-add-sphinx-generated-index-t
 {% extends "!layout.html" %}
 
 {% block sidebartitle %}
-<a href="{{ pathto(master_doc) }}">
+{% set doc = root_doc if root_doc is defined else master_doc %}
+<a href="{{ pathto(doc) }}">
   {{ project }}
   {%- set nav_version = version %}
   {% if READTHEDOCS and current_version %}
@@ -15,7 +16,11 @@ https://stackoverflow.com/questions/25243482/how-to-add-sphinx-generated-index-t
     <div class="trio-version">{{ nav_version }}</div>
   {% endif %}
   <br>
-  <img class="logo" src="{{ pathto('_static/' + logo, 1) }}" />
+  {% if logo_url is defined %}
+    <img class="logo" src="{{ logo_url }}" />
+  {% elif logo is defined %}
+    <img class="logo" src="{{ pathto('_static/' + logo, 1) }}" />
+  {% endif %}
 </a>
 
 {% include "searchbox.html" %}
